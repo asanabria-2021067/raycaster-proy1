@@ -6,6 +6,7 @@ pub struct Intersect {
     pub distance: f32,
     pub impact: char,
     pub is_vertical: bool,
+    pub angle: f32,
 }
 
 fn wall_at(maze: &Maze, map_x: i32, map_y: i32) -> bool {
@@ -76,5 +77,29 @@ pub fn cast_ray(maze: &Maze, pos_x: f32, pos_y: f32, angle: f32, block_size: i32
         distance: perp_dist.abs() * bs,
         impact: char_at(maze, map_x, map_y),
         is_vertical,
+        angle,
     }
+}
+
+// castea num_rays repartidos a lo largo del fov del jugador, centrados en base_angle
+pub fn cast_fov(
+    maze: &Maze,
+    pos_x: f32,
+    pos_y: f32,
+    base_angle: f32,
+    fov: f32,
+    block_size: i32,
+    num_rays: usize,
+) -> Vec<Intersect> {
+    (0..num_rays)
+        .map(|i| {
+            let t = if num_rays > 1 {
+                i as f32 / (num_rays - 1) as f32
+            } else {
+                0.5
+            };
+            let angle = base_angle - fov / 2.0 + fov * t;
+            cast_ray(maze, pos_x, pos_y, angle, block_size)
+        })
+        .collect()
 }
