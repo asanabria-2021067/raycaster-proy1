@@ -1,5 +1,6 @@
 mod framebuffer;
 mod maze;
+mod render2d;
 
 use framebuffer::Framebuffer;
 use maze::Maze;
@@ -9,9 +10,9 @@ const WINDOW_WIDTH: i32 = 1300;
 const WINDOW_HEIGHT: i32 = 900;
 const MARKER_SIZE: i32 = 6;
 
-fn draw_marker(fb: &mut Framebuffer, cell: (usize, usize), cell_w: i32, cell_h: i32) {
-    let cx = cell.0 as i32 * cell_w + cell_w / 2;
-    let cy = cell.1 as i32 * cell_h + cell_h / 2;
+fn draw_marker(fb: &mut Framebuffer, cell: (usize, usize), origin_x: i32, origin_y: i32, block_size: i32) {
+    let cx = origin_x + cell.0 as i32 * block_size + block_size / 2;
+    let cy = origin_y + cell.1 as i32 * block_size + block_size / 2;
     for dy in -MARKER_SIZE / 2..MARKER_SIZE / 2 {
         for dx in -MARKER_SIZE / 2..MARKER_SIZE / 2 {
             fb.point(cx + dx, cy + dy);
@@ -41,17 +42,20 @@ fn main() {
         .load_texture_from_image(&thread, &blank_image)
         .expect("no se pudo crear la textura del framebuffer");
 
-    let cell_w = WINDOW_WIDTH / cols;
-    let cell_h = WINDOW_HEIGHT / rows;
+    let block_size = (WINDOW_WIDTH / cols).min(WINDOW_HEIGHT / rows);
+    let origin_x = (WINDOW_WIDTH - block_size * cols) / 2;
+    let origin_y = (WINDOW_HEIGHT - block_size * rows) / 2;
 
     while !rl.window_should_close() {
         framebuffer.clear();
 
-        framebuffer.set_current_color(Color::RED);
-        draw_marker(&mut framebuffer, spawn, cell_w, cell_h);
+        render2d::render_2d(&mut framebuffer, &level, origin_x, origin_y, block_size);
 
-        framebuffer.set_current_color(Color::LIME);
-        draw_marker(&mut framebuffer, goal, cell_w, cell_h);
+        framebuffer.set_current_color(Color::WHITE);
+        draw_marker(&mut framebuffer, spawn, origin_x, origin_y, block_size);
+
+        framebuffer.set_current_color(Color::GOLD);
+        draw_marker(&mut framebuffer, goal, origin_x, origin_y, block_size);
 
         framebuffer.swap(&mut texture);
 
