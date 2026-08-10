@@ -1,5 +1,6 @@
 mod caster;
 mod framebuffer;
+mod input;
 mod maze;
 mod player;
 mod render2d;
@@ -58,7 +59,9 @@ fn main() {
     let goal_center = cell_center(goal, block_size);
 
     while !rl.window_should_close() {
-        player.a += rl.get_frame_time();
+        let dt = rl.get_frame_time();
+        let move_input = input::read_keyboard(&rl);
+        player.mover(&level, block_size, move_input.forward, move_input.strafe, dt);
 
         let intersect = caster::cast_ray(&level, player.pos_x, player.pos_y, player.a, block_size);
         let hit_x = player.pos_x + intersect.distance * player.a.cos();
