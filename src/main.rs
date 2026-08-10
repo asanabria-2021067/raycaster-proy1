@@ -13,6 +13,7 @@ use raylib::prelude::*;
 const WINDOW_WIDTH: i32 = 1300;
 const WINDOW_HEIGHT: i32 = 900;
 const MARKER_SIZE: i32 = 6;
+const NUM_RAYS_2D: usize = 60;
 
 fn draw_marker(fb: &mut Framebuffer, world_x: f32, world_y: f32, origin_x: i32, origin_y: i32) {
     let cx = origin_x + world_x as i32;
@@ -63,41 +64,51 @@ fn main() {
         let move_input = input::read_keyboard(&rl);
         player.mover(&level, block_size, move_input.forward, move_input.strafe, dt);
 
-        let intersect = caster::cast_ray(&level, player.pos_x, player.pos_y, player.a, block_size);
-        let hit_x = player.pos_x + intersect.distance * player.a.cos();
-        let hit_y = player.pos_y + intersect.distance * player.a.sin();
+        let rays = caster::cast_fov(
+            &level,
+            player.pos_x,
+            player.pos_y,
+            player.a,
+            player.fov,
+            block_size,
+            NUM_RAYS_2D,
+        );
 
         framebuffer.clear();
 
         render2d::render_2d(&mut framebuffer, &level, origin_x, origin_y, block_size);
 
-        render2d::draw_line(
-            &mut framebuffer,
-            origin_x + player.pos_x as i32,
-            origin_y + player.pos_y as i32,
-            origin_x + hit_x as i32,
-            origin_y + hit_y as i32,
-            Color::YELLOW,
-        );
+        for ray in &rays {
+            let hit_x = player.pos_x + ray.distance * ray.angle.cos();
+            let hit_y = player.pos_y + ray.distance * ray.angle.sin();
+            render2d::draw_line(
+                &mut framebuffer,
+                origin_x + player.pos_x as i32,
+                origin_y + player.pos_y as i32,
+                origin_x + hit_x as i32,
+                origin_y + hit_y as i32,
+                Color::new(255, 220, 80, 90),
+            );
+
+            // color del impacto = color del tipo de pared golpeado, oscurecido en cara horizontal
+            // (previsualiza el sombreado por cara vertical/horizontal de la fase 7/8)
+            let wall_index = maze::wall_type_index(ray.impact).unwrap_or(0);
+            let base = render2d::WALL_COLORS[wall_index];
+            let shade = if ray.is_vertical { 1.0 } else { 0.7 };
+            framebuffer.set_current_color(Color::new(
+                (base.r as f32 * shade) as u8,
+                (base.g as f32 * shade) as u8,
+                (base.b as f32 * shade) as u8,
+                255,
+            ));
+            framebuffer.point(origin_x + hit_x as i32, origin_y + hit_y as i32);
+        }
 
         framebuffer.set_current_color(Color::GOLD);
         draw_marker(&mut framebuffer, goal_center.0, goal_center.1, origin_x, origin_y);
 
         framebuffer.set_current_color(Color::SKYBLUE);
         draw_marker(&mut framebuffer, player.pos_x, player.pos_y, origin_x, origin_y);
-
-        // color del impacto = color del tipo de pared golpeado, oscurecido en cara horizontal
-        // (previsualiza el sombreado por cara vertical/horizontal de la fase 7/8)
-        let wall_index = maze::wall_type_index(intersect.impact).unwrap_or(0);
-        let base = render2d::WALL_COLORS[wall_index];
-        let shade = if intersect.is_vertical { 1.0 } else { 0.7 };
-        framebuffer.set_current_color(Color::new(
-            (base.r as f32 * shade) as u8,
-            (base.g as f32 * shade) as u8,
-            (base.b as f32 * shade) as u8,
-            255,
-        ));
-        draw_marker(&mut framebuffer, hit_x, hit_y, origin_x, origin_y);
 
         framebuffer.swap(&mut texture);
 
