@@ -9,6 +9,17 @@ pub const WALL_COLORS: [Color; 4] = [
     Color::new(170, 140, 60, 255),
 ];
 
+pub fn draw_line(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32, color: Color) {
+    fb.set_current_color(color);
+    let steps = (x1 - x0).abs().max((y1 - y0).abs()).max(1);
+    for s in 0..=steps {
+        let t = s as f32 / steps as f32;
+        let x = x0 as f32 + (x1 - x0) as f32 * t;
+        let y = y0 as f32 + (y1 - y0) as f32 * t;
+        fb.point(x.round() as i32, y.round() as i32);
+    }
+}
+
 pub fn render_2d(fb: &mut Framebuffer, maze: &Maze, origin_x: i32, origin_y: i32, block_size: i32) {
     for (j, row) in maze.iter().enumerate() {
         for (i, &c) in row.iter().enumerate() {
