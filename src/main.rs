@@ -4,6 +4,7 @@ mod input;
 mod maze;
 mod player;
 mod render2d;
+mod render3d;
 
 use framebuffer::Framebuffer;
 use maze::Maze;
@@ -12,18 +13,7 @@ use raylib::prelude::*;
 
 const WINDOW_WIDTH: i32 = 1300;
 const WINDOW_HEIGHT: i32 = 900;
-const MARKER_SIZE: i32 = 6;
 const NUM_RAYS_2D: usize = 60;
-
-fn draw_marker(fb: &mut Framebuffer, world_x: f32, world_y: f32, origin_x: i32, origin_y: i32) {
-    let cx = origin_x + world_x as i32;
-    let cy = origin_y + world_y as i32;
-    for dy in -MARKER_SIZE / 2..MARKER_SIZE / 2 {
-        for dx in -MARKER_SIZE / 2..MARKER_SIZE / 2 {
-            fb.point(cx + dx, cy + dy);
-        }
-    }
-}
 
 fn cell_center(cell: (usize, usize), block_size: i32) -> (f32, f32) {
     let bs = block_size as f32;
@@ -58,57 +48,59 @@ fn main() {
 
     let mut player = Player::new(spawn, block_size);
     let goal_center = cell_center(goal, block_size);
+    let mut mode_2d = false;
 
     while !rl.window_should_close() {
         let dt = rl.get_frame_time();
         let move_input = input::read_keyboard(&rl);
         player.mover(&level, block_size, move_input.forward, move_input.strafe, dt);
 
-        let rays = caster::cast_fov(
-            &level,
-            player.pos_x,
-            player.pos_y,
-            player.a,
-            player.fov,
-            block_size,
-            NUM_RAYS_2D,
-        );
+        if rl.is_key_pressed(KeyboardKey::KEY_M) {
+            mode_2d = !mode_2d;
+        }
 
         framebuffer.clear();
 
-        render2d::render_2d(&mut framebuffer, &level, origin_x, origin_y, block_size);
-
-        for ray in &rays {
-            let hit_x = player.pos_x + ray.distance * ray.angle.cos();
-            let hit_y = player.pos_y + ray.distance * ray.angle.sin();
-            render2d::draw_line(
-                &mut framebuffer,
-                origin_x + player.pos_x as i32,
-                origin_y + player.pos_y as i32,
-                origin_x + hit_x as i32,
-                origin_y + hit_y as i32,
-                Color::new(255, 220, 80, 90),
+        if mode_2d {
+            let rays = caster::cast_fov(
+                &level,
+                player.pos_x,
+                player.pos_y,
+                player.a,
+                player.fov,
+                block_size,
+                NUM_RAYS_2D,
             );
-
-            // color del impacto = color del tipo de pared golpeado, oscurecido en cara horizontal
-            // (previsualiza el sombreado por cara vertical/horizontal de la fase 7/8)
-            let wall_index = maze::wall_type_index(ray.impact).unwrap_or(0);
-            let base = render2d::WALL_COLORS[wall_index];
-            let shade = if ray.is_vertical { 1.0 } else { 0.7 };
-            framebuffer.set_current_color(Color::new(
-                (base.r as f32 * shade) as u8,
-                (base.g as f32 * shade) as u8,
-                (base.b as f32 * shade) as u8,
-                255,
-            ));
-            framebuffer.point(origin_x + hit_x as i32, origin_y + hit_y as i32);
+            render2d::render_debug(
+                &mut framebuffer,
+                &level,
+                &rays,
+                (player.pos_x, player.pos_y),
+                goal_center,
+                origin_x,
+                origin_y,
+                block_size,
+            );
+        } else {
+            let rays = caster::cast_fov(
+                &level,
+                player.pos_x,
+                player.pos_y,
+                player.a,
+                player.fov,
+                block_size,
+                WINDOW_WIDTH as usize,
+            );
+            render3d::render_3d(
+                &mut framebuffer,
+                &rays,
+                player.a,
+                WINDOW_WIDTH,
+                WINDOW_HEIGHT,
+                block_size,
+                player.fov,
+            );
         }
-
-        framebuffer.set_current_color(Color::GOLD);
-        draw_marker(&mut framebuffer, goal_center.0, goal_center.1, origin_x, origin_y);
-
-        framebuffer.set_current_color(Color::SKYBLUE);
-        draw_marker(&mut framebuffer, player.pos_x, player.pos_y, origin_x, origin_y);
 
         framebuffer.swap(&mut texture);
 
