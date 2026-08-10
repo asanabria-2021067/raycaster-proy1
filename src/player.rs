@@ -1,14 +1,16 @@
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_3};
 
 use crate::maze::{is_wall, Maze};
 
 const PLAYER_SPEED: f32 = 220.0; // px/seg
 const PLAYER_RADIUS: f32 = 10.0; // px, para colisiones eje por eje
+const DEFAULT_FOV: f32 = FRAC_PI_3; // 60 grados
 
 pub struct Player {
     pub pos_x: f32,
     pub pos_y: f32,
     pub a: f32,
+    pub fov: f32,
 }
 
 impl Player {
@@ -18,6 +20,7 @@ impl Player {
             pos_x: spawn_cell.0 as f32 * bs + bs / 2.0,
             pos_y: spawn_cell.1 as f32 * bs + bs / 2.0,
             a: 0.0,
+            fov: DEFAULT_FOV,
         }
     }
 
@@ -70,7 +73,7 @@ mod tests {
     #[test]
     fn no_atraviesa_pared_al_moverse() {
         let maze = test_maze();
-        let mut p = Player { pos_x: 160.0, pos_y: 96.0, a: 0.0 };
+        let mut p = Player { pos_x: 160.0, pos_y: 96.0, a: 0.0, fov: DEFAULT_FOV };
         for _ in 0..300 {
             p.mover(&maze, 64, -1.0, 0.0, 1.0 / 60.0);
         }
@@ -84,7 +87,7 @@ mod tests {
     #[test]
     fn se_mueve_en_espacio_abierto() {
         let maze = test_maze();
-        let mut p = Player { pos_x: 160.0, pos_y: 96.0, a: 0.0 };
+        let mut p = Player { pos_x: 160.0, pos_y: 96.0, a: 0.0, fov: DEFAULT_FOV };
         p.mover(&maze, 64, -1.0, 0.0, 1.0 / 60.0);
         assert!(p.pos_x < 160.0, "el jugador no se movio");
     }
