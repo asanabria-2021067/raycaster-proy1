@@ -15,6 +15,10 @@ pub fn is_wall(maze: &Maze, i: usize, j: usize) -> bool {
     }
 }
 
+pub fn wall_type_index(c: char) -> Option<usize> {
+    WALL_CHARS.iter().position(|&w| w == c)
+}
+
 pub fn find_char(maze: &Maze, target: char) -> Option<(usize, usize)> {
     for (j, row) in maze.iter().enumerate() {
         for (i, &c) in row.iter().enumerate() {
