@@ -56,6 +56,8 @@ fn main() {
     let mut player = Player::new(spawn, block_size);
     let goal_center = cell_center(goal, block_size);
     let mut mode_2d = false;
+    let mut anim_frame = 0usize;
+    let mut anim_timer = 0.0f32;
     let textures = TextureManager::new();
     let sprite_manager = SpriteManager::new();
     let enemies: Vec<Enemy> = maze::find_all_char(&level, 'e')
@@ -71,6 +73,7 @@ fn main() {
         let move_input = input::read_keyboard(&rl);
         player.mover(&level, block_size, move_input.forward, move_input.strafe, dt);
         player.a += input::read_mouse_rotation(&rl);
+        anim_frame = sprites::advance_frame(anim_frame, &mut anim_timer, dt, sprite_manager.frame_count());
 
         if rl.is_key_pressed(KeyboardKey::KEY_M) {
             mode_2d = !mode_2d;
@@ -130,7 +133,7 @@ fn main() {
                 block_size,
                 &zbuffer,
                 &sprite_manager,
-                0,
+                anim_frame,
             );
             minimap::draw_minimap(
                 &mut framebuffer,
