@@ -215,6 +215,8 @@ fn main() {
                     let zbuffer = render3d::render_3d(
                         &mut framebuffer,
                         &rays,
+                        lvl.player.pos_x,
+                        lvl.player.pos_y,
                         lvl.player.a,
                         WINDOW_WIDTH,
                         WINDOW_HEIGHT,
