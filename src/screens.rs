@@ -28,8 +28,8 @@ pub fn draw_welcome(d: &mut RaylibDrawHandle, window_width: i32, window_height: 
     d.clear_background(BG_MENU);
     d.draw_text("RAY CASTER", window_width / 2 - 190, window_height / 2 - 110, 60, Color::GOLD);
     d.draw_text(
-        "WASD mover  |  mouse rotar  |  click disparar  |  M alterna 2D/3D",
-        window_width / 2 - 330,
+        "WASD mover  |  mouse rotar  |  click disparar  |  R recargar  |  M alterna 2D/3D",
+        window_width / 2 - 380,
         window_height / 2,
         20,
         Color::WHITE,
@@ -78,6 +78,39 @@ pub fn draw_success(d: &mut RaylibDrawHandle, window_width: i32, window_height: 
         22,
         Color::WHITE,
     );
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn draw_hud(
+    d: &mut RaylibDrawHandle,
+    window_height: i32,
+    health: f32,
+    ammo: i32,
+    max_ammo: i32,
+    enemies_left: usize,
+    reloading: bool,
+) {
+    let y = window_height - 40;
+    let health_color = if health > 50.0 {
+        Color::LIME
+    } else if health > 20.0 {
+        Color::GOLD
+    } else {
+        Color::RED
+    };
+    d.draw_text(&format!("VIDA {}", health.max(0.0) as i32), 20, y, 24, health_color);
+
+    let ammo_text = if reloading { "MUN --/--".to_string() } else { format!("MUN {ammo}/{max_ammo}") };
+    let ammo_color = if !reloading && ammo == 0 { Color::RED } else { Color::WHITE };
+    d.draw_text(&ammo_text, 220, y, 24, ammo_color);
+
+    d.draw_text(&format!("ENEMIGOS {enemies_left}"), 420, y, 24, Color::LIGHTGRAY);
+
+    if reloading {
+        d.draw_text("recargando...", 220, y - 26, 18, Color::GOLD);
+    } else if ammo == 0 {
+        d.draw_text("R para recargar", 220, y - 26, 18, Color::RED);
+    }
 }
 
 pub fn draw_game_over(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {

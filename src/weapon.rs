@@ -17,6 +17,8 @@ const FIRE_DURATION: f32 = 0.2; // duracion total de la animacion de disparo/ret
 const HIT_RADIUS: f32 = 20.0; // radio de colision angular del enemigo, en px de mundo
 const GUN_SCALE: f32 = 0.6; // porcion del ancho de ventana que ocupa el arma
 const ALPHA_THRESHOLD: u8 = 20;
+pub const MAX_AMMO: i32 = 12;
+const RELOAD_DURATION: f32 = 1.2;
 
 pub struct GunSprite {
     width: i32,
@@ -55,23 +57,49 @@ impl Default for GunSprite {
 
 pub struct Weapon {
     fire_timer: f32,
+    reload_timer: f32,
+    ammo: i32,
 }
 
 impl Weapon {
     pub fn new() -> Self {
-        Self { fire_timer: 0.0 }
+        Self { fire_timer: 0.0, reload_timer: 0.0, ammo: MAX_AMMO }
+    }
+
+    pub fn ammo(&self) -> i32 {
+        self.ammo
+    }
+
+    pub fn is_reloading(&self) -> bool {
+        self.reload_timer > 0.0
     }
 
     pub fn update(&mut self, dt: f32) {
         self.fire_timer = (self.fire_timer - dt).max(0.0);
+        if self.reload_timer > 0.0 {
+            self.reload_timer = (self.reload_timer - dt).max(0.0);
+            if self.reload_timer == 0.0 {
+                self.ammo = MAX_AMMO;
+            }
+        }
     }
 
-    // dispara si no esta en cooldown; retorna true si el disparo se realizo
+    // dispara si hay municion, no esta recargando ni en cooldown; retorna true si el disparo se realizo
     pub fn try_fire(&mut self) -> bool {
-        if self.fire_timer > 0.0 {
+        if self.fire_timer > 0.0 || self.is_reloading() || self.ammo <= 0 {
             return false;
         }
         self.fire_timer = FIRE_DURATION;
+        self.ammo -= 1;
+        true
+    }
+
+    // inicia recarga si hay espacio y no se esta recargando ya; retorna true si arranco
+    pub fn try_reload(&mut self) -> bool {
+        if self.is_reloading() || self.ammo >= MAX_AMMO {
+            return false;
+        }
+        self.reload_timer = RELOAD_DURATION;
         true
     }
 
