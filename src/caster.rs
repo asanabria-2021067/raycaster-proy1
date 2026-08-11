@@ -7,6 +7,7 @@ pub struct Intersect {
     pub impact: char,
     pub is_vertical: bool,
     pub angle: f32,
+    pub tx: f32,
 }
 
 fn wall_at(maze: &Maze, map_x: i32, map_y: i32) -> bool {
@@ -73,11 +74,20 @@ pub fn cast_ray(maze: &Maze, pos_x: f32, pos_y: f32, angle: f32, block_size: i32
         (map_y as f32 - grid_y + (1 - step_y) as f32 / 2.0) / dir_y
     };
 
+    // coordenada de textura horizontal: posicion fraccional a lo largo de la cara golpeada
+    let wall_x = if is_vertical {
+        grid_y + perp_dist * dir_y
+    } else {
+        grid_x + perp_dist * dir_x
+    };
+    let tx = wall_x - wall_x.floor();
+
     Intersect {
         distance: perp_dist.abs() * bs,
         impact: char_at(maze, map_x, map_y),
         is_vertical,
         angle,
+        tx,
     }
 }
 

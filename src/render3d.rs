@@ -3,7 +3,7 @@ use raylib::prelude::Color;
 use crate::caster::Intersect;
 use crate::framebuffer::Framebuffer;
 use crate::maze::wall_type_index;
-use crate::render2d::WALL_COLORS;
+use crate::textures::TextureManager;
 
 const CEILING_COLOR: Color = Color::new(40, 40, 55, 255);
 const FLOOR_COLOR: Color = Color::new(60, 50, 40, 255);
@@ -17,6 +17,16 @@ fn fill_column(fb: &mut Framebuffer, x0: i32, x1: i32, y0: i32, y1: i32, color: 
     }
 }
 
+fn shade_color(base: Color, shade: f32) -> Color {
+    Color::new(
+        (base.r as f32 * shade) as u8,
+        (base.g as f32 * shade) as u8,
+        (base.b as f32 * shade) as u8,
+        255,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
 pub fn render_3d(
     fb: &mut Framebuffer,
     rays: &[Intersect],
@@ -25,6 +35,7 @@ pub fn render_3d(
     window_height: i32,
     block_size: i32,
     fov: f32,
+    textures: &TextureManager,
 ) {
     let num_rays = rays.len().max(1);
     let column_width = (window_width as f32 / num_rays as f32).ceil() as i32;
@@ -41,19 +52,23 @@ pub fn render_3d(
         let bottom = (center + stake_height / 2.0).min(window_height as f32) as i32;
 
         let wall_index = wall_type_index(ray.impact).unwrap_or(0);
-        let base = WALL_COLORS[wall_index];
         let shade = if ray.is_vertical { 1.0 } else { 0.7 };
-        let wall_color = Color::new(
-            (base.r as f32 * shade) as u8,
-            (base.g as f32 * shade) as u8,
-            (base.b as f32 * shade) as u8,
-            255,
-        );
 
         let x0 = i as i32 * column_width;
         let x1 = x0 + column_width;
+
         fill_column(fb, x0, x1, 0, top, CEILING_COLOR);
-        fill_column(fb, x0, x1, top, bottom, wall_color);
+
+        let span = (bottom - top).max(1);
+        for y in top..bottom {
+            let ty = (y - top) as f32 / span as f32;
+            let sample = textures.sample(wall_index, ray.tx, ty);
+            fb.set_current_color(shade_color(sample, shade));
+            for x in x0..x1 {
+                fb.point(x, y);
+            }
+        }
+
         fill_column(fb, x0, x1, bottom, window_height, FLOOR_COLOR);
     }
 }

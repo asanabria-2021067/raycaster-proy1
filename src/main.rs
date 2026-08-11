@@ -5,11 +5,13 @@ mod maze;
 mod player;
 mod render2d;
 mod render3d;
+mod textures;
 
 use framebuffer::Framebuffer;
 use maze::Maze;
 use player::Player;
 use raylib::prelude::*;
+use textures::TextureManager;
 
 const WINDOW_WIDTH: i32 = 1300;
 const WINDOW_HEIGHT: i32 = 900;
@@ -49,6 +51,7 @@ fn main() {
     let mut player = Player::new(spawn, block_size);
     let goal_center = cell_center(goal, block_size);
     let mut mode_2d = false;
+    let textures = TextureManager::new();
 
     while !rl.window_should_close() {
         let dt = rl.get_frame_time();
@@ -99,6 +102,7 @@ fn main() {
                 WINDOW_HEIGHT,
                 block_size,
                 player.fov,
+                &textures,
             );
         }
 
