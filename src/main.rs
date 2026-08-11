@@ -1,3 +1,4 @@
+mod audio;
 mod caster;
 mod framebuffer;
 mod input;
@@ -10,6 +11,7 @@ mod sprites;
 mod textures;
 mod weapon;
 
+use audio::AudioAssets;
 use framebuffer::Framebuffer;
 use maze::Maze;
 use player::Player;
@@ -45,6 +47,12 @@ fn main() {
 
     rl.disable_cursor();
 
+    let rl_audio = RaylibAudio::init_audio_device().expect("no se pudo inicializar el audio");
+    let audio_assets = AudioAssets::new(&rl_audio);
+    audio_assets.bgm.play_stream();
+    let mut step_timer = 0.0f32;
+    let mut won = false;
+
     let mut framebuffer = Framebuffer::new(WINDOW_WIDTH, WINDOW_HEIGHT, Color::BLACK);
     let blank_image = Image::gen_image_color(WINDOW_WIDTH, WINDOW_HEIGHT, Color::BLACK);
     let mut texture = rl
@@ -79,9 +87,23 @@ fn main() {
         player.a += input::read_mouse_rotation(&rl);
         anim_frame = sprites::advance_frame(anim_frame, &mut anim_timer, dt, sprite_manager.frame_count());
 
+        audio_assets.bgm.update_stream();
+        let is_moving = move_input.forward != 0.0 || move_input.strafe != 0.0;
+        audio::update_footsteps(&mut step_timer, dt, is_moving, &audio_assets.step);
+
         weapon.update(dt);
         if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) && weapon.try_fire() {
+            audio_assets.shoot.play();
             weapon::hitscan(&mut enemies, &level, player.pos_x, player.pos_y, player.a, block_size);
+        }
+
+        let player_cell = (player.pos_x / block_size as f32) as usize;
+        let player_row = (player.pos_y / block_size as f32) as usize;
+        if !won && (player_cell, player_row) == goal {
+            won = true;
+            audio_assets.bgm.stop_stream();
+            audio_assets.win.play();
+            println!("meta alcanzada!");
         }
 
         if rl.is_key_pressed(KeyboardKey::KEY_M) {
