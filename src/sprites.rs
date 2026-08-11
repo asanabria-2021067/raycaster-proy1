@@ -13,6 +13,17 @@ const SPRITE_PATHS: [&str; 4] = [
 
 const ALPHA_THRESHOLD: u8 = 20;
 const FOV_MARGIN: f32 = 0.3; // margen para no recortar sprites a medio entrar en pantalla
+const ANIM_FRAME_SECONDS: f32 = 0.15;
+
+pub fn advance_frame(current: usize, timer: &mut f32, dt: f32, frame_count: usize) -> usize {
+    *timer += dt;
+    if *timer >= ANIM_FRAME_SECONDS {
+        *timer -= ANIM_FRAME_SECONDS;
+        (current + 1) % frame_count
+    } else {
+        current
+    }
+}
 
 pub struct SpriteManager {
     width: i32,
@@ -35,6 +46,10 @@ impl SpriteManager {
         let frames = images.iter().map(|img| img.get_image_data().to_vec()).collect();
 
         Self { width, height, frames }
+    }
+
+    pub fn frame_count(&self) -> usize {
+        self.frames.len()
     }
 
     fn sample(&self, frame: usize, tx: f32, ty: f32) -> Color {
