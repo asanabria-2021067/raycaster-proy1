@@ -36,15 +36,17 @@ pub fn render_3d(
     block_size: i32,
     fov: f32,
     textures: &TextureManager,
-) {
+) -> Vec<f32> {
     let num_rays = rays.len().max(1);
     let column_width = (window_width as f32 / num_rays as f32).ceil() as i32;
     let dist_to_projection_plane = (window_width as f32 / 2.0) / (fov / 2.0).tan();
+    let mut zbuffer = Vec::with_capacity(num_rays);
 
     for (i, ray) in rays.iter().enumerate() {
         // correccion de fisheye: se usa la distancia perpendicular al plano de la camara,
         // no la distancia real del rayo
         let corrected_dist = (ray.distance * (ray.angle - player_angle).cos()).max(1.0);
+        zbuffer.push(corrected_dist);
         let stake_height = (block_size as f32 / corrected_dist) * dist_to_projection_plane;
 
         let center = window_height as f32 / 2.0;
@@ -71,4 +73,6 @@ pub fn render_3d(
 
         fill_column(fb, x0, x1, bottom, window_height, FLOOR_COLOR);
     }
+
+    zbuffer
 }
