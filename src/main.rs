@@ -26,6 +26,11 @@ const WINDOW_WIDTH: i32 = 1300;
 const WINDOW_HEIGHT: i32 = 900;
 const NUM_RAYS_2D: usize = 60;
 
+const PLAYER_MAX_HEALTH: f32 = 100.0;
+const CONTACT_RADIUS: f32 = 28.0; // px, distancia enemigo-jugador para recibir dano
+const DAMAGE_PER_HIT: f32 = 15.0;
+const DAMAGE_COOLDOWN: f32 = 0.6; // seg entre golpes mientras el enemigo sigue en contacto
+
 fn cell_center(cell: (usize, usize), block_size: i32) -> (f32, f32) {
     let bs = block_size as f32;
     (cell.0 as f32 * bs + bs / 2.0, cell.1 as f32 * bs + bs / 2.0)
@@ -40,6 +45,7 @@ struct LevelState {
     origin_y: i32,
     player: Player,
     enemies: Vec<Enemy>,
+    health: f32,
 }
 
 impl LevelState {
@@ -68,7 +74,7 @@ impl LevelState {
             })
             .collect();
 
-        Self { maze, goal, goal_center, block_size, origin_x, origin_y, player, enemies }
+        Self { maze, goal, goal_center, block_size, origin_x, origin_y, player, enemies, health: PLAYER_MAX_HEALTH }
     }
 }
 
@@ -102,6 +108,7 @@ fn main() {
     let mut anim_timer = 0.0f32;
     let mut weapon = Weapon::new();
     let mut step_timer = 0.0f32;
+    let mut damage_cooldown = 0.0f32;
 
     while !rl.window_should_close() {
         let dt = rl.get_frame_time();
@@ -126,6 +133,7 @@ fn main() {
                     anim_timer = 0.0;
                     weapon = Weapon::new();
                     step_timer = 0.0;
+                    damage_cooldown = 0.0;
                     audio_assets.bgm.play_stream();
                     state = GameState::Playing;
                 }
@@ -163,6 +171,22 @@ fn main() {
                     mode_2d = !mode_2d;
                 }
 
+                damage_cooldown = (damage_cooldown - dt).max(0.0);
+                let in_contact = lvl.enemies.iter().any(|enemy| {
+                    let dx = enemy.x - lvl.player.pos_x;
+                    let dy = enemy.y - lvl.player.pos_y;
+                    (dx * dx + dy * dy).sqrt() < CONTACT_RADIUS
+                });
+                if in_contact && damage_cooldown <= 0.0 {
+                    lvl.health -= DAMAGE_PER_HIT;
+                    damage_cooldown = DAMAGE_COOLDOWN;
+                }
+                if lvl.health <= 0.0 {
+                    audio_assets.bgm.stop_stream();
+                    audio_assets.lose.play();
+                    state = GameState::GameOver;
+                }
+
                 let player_cell = (
                     (lvl.player.pos_x / lvl.block_size as f32) as usize,
                     (lvl.player.pos_y / lvl.block_size as f32) as usize,
@@ -174,6 +198,12 @@ fn main() {
                 }
             }
             GameState::Success => {
+                if rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
+                    level = None;
+                    state = GameState::LevelSelect;
+                }
+            }
+            GameState::GameOver => {
                 if rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
                     level = None;
                     state = GameState::LevelSelect;
@@ -264,6 +294,7 @@ fn main() {
             GameState::LevelSelect => screens::draw_level_select(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT, selected_level),
             GameState::Playing => d.draw_texture(&texture, 0, 0, Color::WHITE),
             GameState::Success => screens::draw_success(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
+            GameState::GameOver => screens::draw_game_over(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
         }
     }
 }

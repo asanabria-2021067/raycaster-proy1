@@ -5,6 +5,7 @@ pub const LEVEL_COUNT: usize = AVAILABLE_LEVELS.len();
 
 const BG_MENU: Color = Color::new(15, 15, 25, 255);
 const BG_SUCCESS: Color = Color::new(10, 30, 15, 255);
+const BG_GAME_OVER: Color = Color::new(30, 10, 10, 255);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum GameState {
@@ -12,6 +13,7 @@ pub enum GameState {
     LevelSelect,
     Playing,
     Success,
+    GameOver,
 }
 
 pub fn level_path(index: usize) -> &'static str {
@@ -69,6 +71,18 @@ pub fn draw_level_select(d: &mut RaylibDrawHandle, window_width: i32, window_hei
 pub fn draw_success(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
     d.clear_background(BG_SUCCESS);
     d.draw_text("META ALCANZADA", window_width / 2 - 270, window_height / 2 - 60, 50, Color::GOLD);
+    d.draw_text(
+        "ENTER para volver a seleccion de nivel",
+        window_width / 2 - 260,
+        window_height / 2 + 20,
+        22,
+        Color::WHITE,
+    );
+}
+
+pub fn draw_game_over(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
+    d.clear_background(BG_GAME_OVER);
+    d.draw_text("HAS MUERTO", window_width / 2 - 210, window_height / 2 - 60, 50, Color::RED);
     d.draw_text(
         "ENTER para volver a seleccion de nivel",
         window_width / 2 - 260,
