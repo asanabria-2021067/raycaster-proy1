@@ -178,11 +178,11 @@ fn main() {
             }
         }
 
-        framebuffer.clear();
-
         if state == GameState::Playing {
             if let Some(lvl) = &level {
                 if mode_2d {
+                    // el modo 2D no cubre toda la pantalla (hay margen de letterbox), si hace falta limpiar
+                    framebuffer.clear();
                     let rays = caster::cast_fov(
                         &lvl.maze,
                         lvl.player.pos_x,
@@ -247,10 +247,9 @@ fn main() {
                     );
                     weapon::draw_gun(&mut framebuffer, &gun_sprite, &weapon, WINDOW_WIDTH, WINDOW_HEIGHT);
                 }
+                framebuffer.swap(&mut texture);
             }
         }
-
-        framebuffer.swap(&mut texture);
 
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
