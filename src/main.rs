@@ -2,6 +2,7 @@ mod caster;
 mod framebuffer;
 mod input;
 mod maze;
+mod minimap;
 mod player;
 mod render2d;
 mod render3d;
@@ -106,6 +107,15 @@ fn main() {
                 block_size,
                 player.fov,
                 &textures,
+            );
+            minimap::draw_minimap(
+                &mut framebuffer,
+                &level,
+                (player.pos_x, player.pos_y),
+                player.a,
+                goal_center,
+                block_size,
+                WINDOW_WIDTH,
             );
         }
 
