@@ -137,6 +137,9 @@ fn main() {
                 lvl.player.mover(&lvl.maze, lvl.block_size, move_input.forward, move_input.strafe, dt);
                 lvl.player.a += input::read_mouse_rotation(&rl) + input::read_gamepad_rotation(&rl, dt);
                 anim_frame = sprites::advance_frame(anim_frame, &mut anim_timer, dt, sprite_manager.frame_count());
+                for enemy in lvl.enemies.iter_mut() {
+                    enemy.update_ai(&lvl.maze, lvl.block_size, lvl.player.pos_x, lvl.player.pos_y, dt);
+                }
 
                 audio_assets.bgm.update_stream();
                 let is_moving = move_input.forward != 0.0 || move_input.strafe != 0.0;

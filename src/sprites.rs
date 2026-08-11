@@ -2,7 +2,9 @@ use std::f32::consts::PI;
 
 use raylib::prelude::*;
 
+use crate::caster::cast_ray;
 use crate::framebuffer::Framebuffer;
+use crate::maze::{is_wall, Maze};
 
 const SPRITE_PATHS: [&str; 4] = [
     "assets/sprites/enemy_00.png",
@@ -14,6 +16,11 @@ const SPRITE_PATHS: [&str; 4] = [
 const ALPHA_THRESHOLD: u8 = 20;
 const FOV_MARGIN: f32 = 0.3; // margen para no recortar sprites a medio entrar en pantalla
 const ANIM_FRAME_SECONDS: f32 = 0.15;
+
+const CHASE_RANGE: f32 = 400.0; // px, radio de deteccion
+const CHASE_SPEED: f32 = 90.0; // px/seg
+const STOP_DISTANCE: f32 = 24.0; // no se acerca mas al jugador que esto
+const ENEMY_RADIUS: f32 = 10.0;
 
 pub fn advance_frame(current: usize, timer: &mut f32, dt: f32, frame_count: usize) -> usize {
     *timer += dt;
@@ -68,6 +75,49 @@ impl Default for SpriteManager {
 pub struct Enemy {
     pub x: f32,
     pub y: f32,
+}
+
+impl Enemy {
+    // persigue al jugador si esta en rango y hay linea de vision directa (sin paredes de por medio)
+    pub fn update_ai(&mut self, maze: &Maze, block_size: i32, player_x: f32, player_y: f32, dt: f32) {
+        let dx = player_x - self.x;
+        let dy = player_y - self.y;
+        let dist = (dx * dx + dy * dy).sqrt();
+        if !(STOP_DISTANCE..=CHASE_RANGE).contains(&dist) {
+            return;
+        }
+
+        let angle = dy.atan2(dx);
+        let wall_dist = cast_ray(maze, self.x, self.y, angle, block_size).distance;
+        if wall_dist < dist {
+            return;
+        }
+
+        let step = CHASE_SPEED * dt / dist;
+        let new_x = self.x + dx * step;
+        let new_y = self.y + dy * step;
+        if !enemy_collides(maze, block_size, new_x, self.y) {
+            self.x = new_x;
+        }
+        if !enemy_collides(maze, block_size, self.x, new_y) {
+            self.y = new_y;
+        }
+    }
+}
+
+fn enemy_collides(maze: &Maze, block_size: i32, x: f32, y: f32) -> bool {
+    let bs = block_size as f32;
+    let corners = [
+        (x - ENEMY_RADIUS, y - ENEMY_RADIUS),
+        (x + ENEMY_RADIUS, y - ENEMY_RADIUS),
+        (x - ENEMY_RADIUS, y + ENEMY_RADIUS),
+        (x + ENEMY_RADIUS, y + ENEMY_RADIUS),
+    ];
+    corners.iter().any(|&(cx, cy)| {
+        let i = cx / bs;
+        let j = cy / bs;
+        i < 0.0 || j < 0.0 || is_wall(maze, i as usize, j as usize)
+    })
 }
 
 fn normalize_angle(mut angle: f32) -> f32 {
