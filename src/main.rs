@@ -133,9 +133,9 @@ fn main() {
             GameState::Playing => {
                 let lvl = level.as_mut().expect("Playing sin nivel cargado");
 
-                let move_input = input::read_keyboard(&rl);
+                let move_input = input::read_keyboard(&rl).combine(input::read_gamepad_move(&rl));
                 lvl.player.mover(&lvl.maze, lvl.block_size, move_input.forward, move_input.strafe, dt);
-                lvl.player.a += input::read_mouse_rotation(&rl);
+                lvl.player.a += input::read_mouse_rotation(&rl) + input::read_gamepad_rotation(&rl, dt);
                 anim_frame = sprites::advance_frame(anim_frame, &mut anim_timer, dt, sprite_manager.frame_count());
 
                 audio_assets.bgm.update_stream();
@@ -143,7 +143,8 @@ fn main() {
                 audio::update_footsteps(&mut step_timer, dt, is_moving, &audio_assets.step);
 
                 weapon.update(dt);
-                if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) && weapon.try_fire() {
+                let fire_pressed = rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) || input::gamepad_fire_pressed(&rl);
+                if fire_pressed && weapon.try_fire() {
                     audio_assets.shoot.play();
                     weapon::hitscan(
                         &mut lvl.enemies,
