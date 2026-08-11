@@ -29,3 +29,15 @@ pub fn find_char(maze: &Maze, target: char) -> Option<(usize, usize)> {
     }
     None
 }
+
+pub fn find_all_char(maze: &Maze, target: char) -> Vec<(usize, usize)> {
+    maze.iter()
+        .enumerate()
+        .flat_map(|(j, row)| {
+            row.iter()
+                .enumerate()
+                .filter(move |&(_, &c)| c == target)
+                .map(move |(i, _)| (i, j))
+        })
+        .collect()
+}
