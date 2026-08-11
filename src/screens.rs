@@ -28,8 +28,8 @@ pub fn draw_welcome(d: &mut RaylibDrawHandle, window_width: i32, window_height: 
     d.clear_background(BG_MENU);
     d.draw_text("RAY CASTER", window_width / 2 - 190, window_height / 2 - 110, 60, Color::GOLD);
     d.draw_text(
-        "WASD mover  |  mouse rotar  |  click disparar  |  R recargar  |  M alterna 2D/3D",
-        window_width / 2 - 380,
+        "WASD mover  |  shift correr  |  mouse rotar  |  click disparar  |  R recargar  |  M alterna 2D/3D",
+        window_width / 2 - 460,
         window_height / 2,
         20,
         Color::WHITE,
