@@ -6,12 +6,14 @@ mod minimap;
 mod player;
 mod render2d;
 mod render3d;
+mod sprites;
 mod textures;
 
 use framebuffer::Framebuffer;
 use maze::Maze;
 use player::Player;
 use raylib::prelude::*;
+use sprites::{Enemy, SpriteManager};
 use textures::TextureManager;
 
 const WINDOW_WIDTH: i32 = 1300;
@@ -55,6 +57,14 @@ fn main() {
     let goal_center = cell_center(goal, block_size);
     let mut mode_2d = false;
     let textures = TextureManager::new();
+    let sprite_manager = SpriteManager::new();
+    let enemies: Vec<Enemy> = maze::find_all_char(&level, 'e')
+        .into_iter()
+        .map(|cell| {
+            let (x, y) = cell_center(cell, block_size);
+            Enemy { x, y }
+        })
+        .collect();
 
     while !rl.window_should_close() {
         let dt = rl.get_frame_time();
@@ -98,7 +108,7 @@ fn main() {
                 block_size,
                 WINDOW_WIDTH as usize,
             );
-            render3d::render_3d(
+            let zbuffer = render3d::render_3d(
                 &mut framebuffer,
                 &rays,
                 player.a,
@@ -107,6 +117,20 @@ fn main() {
                 block_size,
                 player.fov,
                 &textures,
+            );
+            sprites::render_sprites(
+                &mut framebuffer,
+                &enemies,
+                player.pos_x,
+                player.pos_y,
+                player.a,
+                player.fov,
+                WINDOW_WIDTH,
+                WINDOW_HEIGHT,
+                block_size,
+                &zbuffer,
+                &sprite_manager,
+                0,
             );
             minimap::draw_minimap(
                 &mut framebuffer,
