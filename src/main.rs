@@ -170,6 +170,9 @@ fn main() {
                 if rl.is_key_pressed(KeyboardKey::KEY_M) {
                     mode_2d = !mode_2d;
                 }
+                if rl.is_key_pressed(KeyboardKey::KEY_R) {
+                    weapon.try_reload();
+                }
 
                 damage_cooldown = (damage_cooldown - dt).max(0.0);
                 let in_contact = lvl.enemies.iter().any(|enemy| {
@@ -292,7 +295,20 @@ fn main() {
         match state {
             GameState::Welcome => screens::draw_welcome(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
             GameState::LevelSelect => screens::draw_level_select(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT, selected_level),
-            GameState::Playing => d.draw_texture(&texture, 0, 0, Color::WHITE),
+            GameState::Playing => {
+                d.draw_texture(&texture, 0, 0, Color::WHITE);
+                if let Some(lvl) = &level {
+                    screens::draw_hud(
+                        &mut d,
+                        WINDOW_HEIGHT,
+                        lvl.health,
+                        weapon.ammo(),
+                        weapon::MAX_AMMO,
+                        lvl.enemies.len(),
+                        weapon.is_reloading(),
+                    );
+                }
+            }
             GameState::Success => screens::draw_success(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
             GameState::GameOver => screens::draw_game_over(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
         }
