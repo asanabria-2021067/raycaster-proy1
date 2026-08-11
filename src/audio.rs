@@ -7,6 +7,7 @@ pub struct AudioAssets<'aud> {
     pub shoot: Sound<'aud>,
     pub step: Sound<'aud>,
     pub win: Sound<'aud>,
+    pub lose: Sound<'aud>,
 }
 
 impl<'aud> AudioAssets<'aud> {
@@ -23,7 +24,10 @@ impl<'aud> AudioAssets<'aud> {
         let win = audio
             .new_sound("assets/audio/win.wav")
             .unwrap_or_else(|e| panic!("no se pudo cargar win.wav: {e}"));
-        Self { bgm, shoot, step, win }
+        let lose = audio
+            .new_sound("assets/audio/lose.wav")
+            .unwrap_or_else(|e| panic!("no se pudo cargar lose.wav: {e}"));
+        Self { bgm, shoot, step, win, lose }
     }
 }
 
