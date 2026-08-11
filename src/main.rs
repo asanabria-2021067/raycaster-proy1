@@ -8,6 +8,7 @@ mod render2d;
 mod render3d;
 mod sprites;
 mod textures;
+mod weapon;
 
 use framebuffer::Framebuffer;
 use maze::Maze;
@@ -15,6 +16,7 @@ use player::Player;
 use raylib::prelude::*;
 use sprites::{Enemy, SpriteManager};
 use textures::TextureManager;
+use weapon::{GunSprite, Weapon};
 
 const WINDOW_WIDTH: i32 = 1300;
 const WINDOW_HEIGHT: i32 = 900;
@@ -60,13 +62,15 @@ fn main() {
     let mut anim_timer = 0.0f32;
     let textures = TextureManager::new();
     let sprite_manager = SpriteManager::new();
-    let enemies: Vec<Enemy> = maze::find_all_char(&level, 'e')
+    let mut enemies: Vec<Enemy> = maze::find_all_char(&level, 'e')
         .into_iter()
         .map(|cell| {
             let (x, y) = cell_center(cell, block_size);
             Enemy { x, y }
         })
         .collect();
+    let gun_sprite = GunSprite::new();
+    let mut weapon = Weapon::new();
 
     while !rl.window_should_close() {
         let dt = rl.get_frame_time();
@@ -74,6 +78,11 @@ fn main() {
         player.mover(&level, block_size, move_input.forward, move_input.strafe, dt);
         player.a += input::read_mouse_rotation(&rl);
         anim_frame = sprites::advance_frame(anim_frame, &mut anim_timer, dt, sprite_manager.frame_count());
+
+        weapon.update(dt);
+        if rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) && weapon.try_fire() {
+            weapon::hitscan(&mut enemies, &level, player.pos_x, player.pos_y, player.a, block_size);
+        }
 
         if rl.is_key_pressed(KeyboardKey::KEY_M) {
             mode_2d = !mode_2d;
@@ -144,6 +153,7 @@ fn main() {
                 block_size,
                 WINDOW_WIDTH,
             );
+            weapon::draw_gun(&mut framebuffer, &gun_sprite, &weapon, WINDOW_WIDTH, WINDOW_HEIGHT);
         }
 
         framebuffer.swap(&mut texture);
