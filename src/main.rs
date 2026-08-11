@@ -142,7 +142,8 @@ fn main() {
                 let lvl = level.as_mut().expect("Playing sin nivel cargado");
 
                 let move_input = input::read_keyboard(&rl).combine(input::read_gamepad_move(&rl));
-                lvl.player.mover(&lvl.maze, lvl.block_size, move_input.forward, move_input.strafe, dt);
+                let sprint = rl.is_key_down(KeyboardKey::KEY_LEFT_SHIFT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_SHIFT);
+                lvl.player.mover(&lvl.maze, lvl.block_size, move_input.forward, move_input.strafe, sprint, dt);
                 lvl.player.a += input::read_mouse_rotation(&rl) + input::read_gamepad_rotation(&rl, dt);
                 anim_frame = sprites::advance_frame(anim_frame, &mut anim_timer, dt, sprite_manager.frame_count());
                 for enemy in lvl.enemies.iter_mut() {
