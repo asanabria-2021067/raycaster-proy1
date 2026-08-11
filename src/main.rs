@@ -38,6 +38,8 @@ fn main() {
         .title("Ray Caster")
         .build();
 
+    rl.disable_cursor();
+
     let mut framebuffer = Framebuffer::new(WINDOW_WIDTH, WINDOW_HEIGHT, Color::BLACK);
     let blank_image = Image::gen_image_color(WINDOW_WIDTH, WINDOW_HEIGHT, Color::BLACK);
     let mut texture = rl
@@ -57,6 +59,7 @@ fn main() {
         let dt = rl.get_frame_time();
         let move_input = input::read_keyboard(&rl);
         player.mover(&level, block_size, move_input.forward, move_input.strafe, dt);
+        player.a += input::read_mouse_rotation(&rl);
 
         if rl.is_key_pressed(KeyboardKey::KEY_M) {
             mode_2d = !mode_2d;
