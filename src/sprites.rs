@@ -46,7 +46,7 @@ impl SpriteManager {
     pub fn new() -> Self {
         let loaded: Vec<Option<(i32, i32, Vec<Color>)>> = SPRITE_PATHS
             .iter()
-            .map(|path| match Image::load_image(path) {
+            .map(|path| match Image::load_image(&crate::paths::resolve(path)) {
                 Ok(image) => Some((image.width(), image.height(), image.get_image_data().to_vec())),
                 Err(e) => {
                     eprintln!("advertencia: no se pudo cargar el sprite {path}: {e}, se usara un reemplazo");

@@ -3,7 +3,8 @@ pub type Maze = Vec<Vec<char>>;
 const WALL_CHARS: [char; 4] = ['+', '-', '|', '#'];
 
 pub fn load_maze(path: &str) -> Result<Maze, String> {
-    let content = std::fs::read_to_string(path).map_err(|e| format!("no se pudo leer el mapa {path}: {e}"))?;
+    let resolved = crate::paths::resolve(path);
+    let content = std::fs::read_to_string(&resolved).map_err(|e| format!("no se pudo leer el mapa {resolved}: {e}"))?;
     Ok(content.lines().map(|line| line.chars().collect()).collect())
 }
 

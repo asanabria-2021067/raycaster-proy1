@@ -13,23 +13,23 @@ pub struct AudioAssets<'aud> {
 impl<'aud> AudioAssets<'aud> {
     pub fn new(audio: &'aud RaylibAudio) -> Self {
         let bgm = audio
-            .new_music("assets/audio/bgm.ogg")
+            .new_music(&crate::paths::resolve("assets/audio/bgm.ogg"))
             .map_err(|e| eprintln!("advertencia: no se pudo cargar bgm.ogg: {e}, sin musica de fondo"))
             .ok();
         let shoot = audio
-            .new_sound("assets/audio/shoot.wav")
+            .new_sound(&crate::paths::resolve("assets/audio/shoot.wav"))
             .map_err(|e| eprintln!("advertencia: no se pudo cargar shoot.wav: {e}, sin sonido de disparo"))
             .ok();
         let step = audio
-            .new_sound("assets/audio/step.wav")
+            .new_sound(&crate::paths::resolve("assets/audio/step.wav"))
             .map_err(|e| eprintln!("advertencia: no se pudo cargar step.wav: {e}, sin sonido de pasos"))
             .ok();
         let win = audio
-            .new_sound("assets/audio/win.wav")
+            .new_sound(&crate::paths::resolve("assets/audio/win.wav"))
             .map_err(|e| eprintln!("advertencia: no se pudo cargar win.wav: {e}, sin sonido de victoria"))
             .ok();
         let lose = audio
-            .new_sound("assets/audio/lose.wav")
+            .new_sound(&crate::paths::resolve("assets/audio/lose.wav"))
             .map_err(|e| eprintln!("advertencia: no se pudo cargar lose.wav: {e}, sin sonido de derrota"))
             .ok();
         Self { bgm, shoot, step, win, lose }

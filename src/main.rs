@@ -4,6 +4,7 @@ mod framebuffer;
 mod input;
 mod maze;
 mod minimap;
+mod paths;
 mod player;
 mod render2d;
 mod render3d;
@@ -152,7 +153,7 @@ fn main() {
                     selected_level = (selected_level + screens::LEVEL_COUNT - 1) % screens::LEVEL_COUNT;
                 }
                 if rl.is_key_pressed(KeyboardKey::KEY_ENTER) && screens::level_exists(selected_level) {
-                    match LevelState::load(screens::level_path(selected_level)) {
+                    match LevelState::load(&screens::level_path(selected_level)) {
                         Ok(lvl) => {
                             level = Some(lvl);
                             level_error = None;

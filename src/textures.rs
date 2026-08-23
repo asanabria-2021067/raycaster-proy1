@@ -30,7 +30,7 @@ fn checkerboard(width: i32, height: i32, color_a: Color, color_b: Color) -> Vec<
 }
 
 fn try_load(path: &str) -> Option<(i32, i32, Vec<Color>)> {
-    match Image::load_image(path) {
+    match Image::load_image(&crate::paths::resolve(path)) {
         Ok(image) => Some((image.width(), image.height(), image.get_image_data().to_vec())),
         Err(e) => {
             eprintln!("advertencia: no se pudo cargar la textura {path}: {e}, se usara un reemplazo");

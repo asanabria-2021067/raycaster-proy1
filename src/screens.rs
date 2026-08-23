@@ -16,12 +16,12 @@ pub enum GameState {
     GameOver,
 }
 
-pub fn level_path(index: usize) -> &'static str {
-    AVAILABLE_LEVELS[index]
+pub fn level_path(index: usize) -> String {
+    crate::paths::resolve(AVAILABLE_LEVELS[index])
 }
 
 pub fn level_exists(index: usize) -> bool {
-    std::path::Path::new(AVAILABLE_LEVELS[index]).exists()
+    std::path::Path::new(&crate::paths::resolve(AVAILABLE_LEVELS[index])).exists()
 }
 
 pub fn draw_welcome(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
