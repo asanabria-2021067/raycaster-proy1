@@ -1,10 +1,14 @@
 use raylib::prelude::*;
 
+use crate::weapon::WeaponKind;
+
 const STEP_INTERVAL: f32 = 0.35;
 
 pub struct AudioAssets<'aud> {
     pub bgm: Option<Music<'aud>>,
-    pub shoot: Option<Sound<'aud>>,
+    pub shoot_pistol: Option<Sound<'aud>>,
+    pub shoot_rifle: Option<Sound<'aud>>,
+    pub shoot_shotgun: Option<Sound<'aud>>,
     pub step: Option<Sound<'aud>>,
     pub win: Option<Sound<'aud>>,
     pub lose: Option<Sound<'aud>>,
@@ -18,9 +22,17 @@ impl<'aud> AudioAssets<'aud> {
             .new_music(&crate::paths::resolve("assets/audio/bgm.ogg"))
             .map_err(|e| eprintln!("advertencia: no se pudo cargar bgm.ogg: {e}, sin musica de fondo"))
             .ok();
-        let shoot = audio
-            .new_sound(&crate::paths::resolve("assets/audio/shoot.wav"))
-            .map_err(|e| eprintln!("advertencia: no se pudo cargar shoot.wav: {e}, sin sonido de disparo"))
+        let shoot_pistol = audio
+            .new_sound(&crate::paths::resolve("assets/audio/shoot_pistol.wav"))
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar shoot_pistol.wav: {e}, sin sonido de disparo"))
+            .ok();
+        let shoot_rifle = audio
+            .new_sound(&crate::paths::resolve("assets/audio/shoot_rifle.wav"))
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar shoot_rifle.wav: {e}, sin sonido de disparo"))
+            .ok();
+        let shoot_shotgun = audio
+            .new_sound(&crate::paths::resolve("assets/audio/shoot_shotgun.wav"))
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar shoot_shotgun.wav: {e}, sin sonido de disparo"))
             .ok();
         let step = audio
             .new_sound(&crate::paths::resolve("assets/audio/step.wav"))
@@ -42,7 +54,15 @@ impl<'aud> AudioAssets<'aud> {
             .new_sound(&crate::paths::resolve("assets/audio/hurt.wav"))
             .map_err(|e| eprintln!("advertencia: no se pudo cargar hurt.wav: {e}, sin sonido de dano"))
             .ok();
-        Self { bgm, shoot, step, win, lose, reload, hurt }
+        Self { bgm, shoot_pistol, shoot_rifle, shoot_shotgun, step, win, lose, reload, hurt }
+    }
+
+    pub fn shoot_sound(&self, kind: WeaponKind) -> Option<&Sound<'_>> {
+        match kind {
+            WeaponKind::Pistol => self.shoot_pistol.as_ref(),
+            WeaponKind::Rifle => self.shoot_rifle.as_ref(),
+            WeaponKind::Shotgun => self.shoot_shotgun.as_ref(),
+        }
     }
 }
 

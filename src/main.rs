@@ -33,6 +33,10 @@ const DAMAGE_PER_HIT: f32 = 15.0;
 const DAMAGE_COOLDOWN: f32 = 0.6; // seg entre golpes mientras el enemigo sigue en contacto
 const DAMAGE_FLASH_DURATION: f32 = 0.35; // seg que dura el destello rojo al recibir dano
 
+fn starting_weapons() -> Vec<Weapon> {
+    vec![Weapon::new(WeaponKind::Pistol), Weapon::new(WeaponKind::Rifle), Weapon::new(WeaponKind::Shotgun)]
+}
+
 fn cell_center(cell: (usize, usize), block_size: i32) -> (f32, f32) {
     let bs = block_size as f32;
     (cell.0 as f32 * bs + bs / 2.0, cell.1 as f32 * bs + bs / 2.0)
@@ -87,7 +91,7 @@ impl LevelState {
             .into_iter()
             .map(|cell| {
                 let (x, y) = cell_center(cell, block_size);
-                Pickup { x, y, kind: WeaponKind::Rifle }
+                Pickup { x, y }
             })
             .collect();
         let textures = TextureManager::new(texture_dir);
@@ -137,7 +141,7 @@ fn main() {
     let mut mode_2d = false;
     let mut anim_frame = 0usize;
     let mut anim_timer = 0.0f32;
-    let mut weapons = vec![Weapon::new(WeaponKind::Pistol)];
+    let mut weapons = starting_weapons();
     let mut active_weapon = 0usize;
     let mut step_timer = 0.0f32;
     let mut damage_cooldown = 0.0f32;
@@ -191,7 +195,7 @@ fn main() {
                             mode_2d = false;
                             anim_frame = 0;
                             anim_timer = 0.0;
-                            weapons = vec![Weapon::new(WeaponKind::Pistol)];
+                            weapons = starting_weapons();
                             active_weapon = 0;
                             step_timer = 0.0;
                             damage_cooldown = 0.0;
@@ -237,12 +241,15 @@ fn main() {
                 if rl.is_key_pressed(KeyboardKey::KEY_TWO) && weapons.len() > 1 {
                     active_weapon = 1;
                 }
+                if rl.is_key_pressed(KeyboardKey::KEY_THREE) && weapons.len() > 2 {
+                    active_weapon = 2;
+                }
 
                 let weapon = &mut weapons[active_weapon];
                 weapon.update(dt);
                 let fire_pressed = rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) || input::gamepad_fire_pressed(&rl);
                 if fire_pressed && weapon.try_fire() {
-                    if let Some(shoot) = &audio_assets.shoot {
+                    if let Some(shoot) = audio_assets.shoot_sound(weapon.kind()) {
                         shoot.play();
                     }
                     weapon::hitscan(
@@ -264,13 +271,10 @@ fn main() {
                     }
                 }
 
-                if let Some(kind) = weapon::try_collect_pickup(&mut lvl.pickups, lvl.player.pos_x, lvl.player.pos_y) {
-                    if !weapons.iter().any(|w| w.kind() == kind) {
-                        weapons.push(Weapon::new(kind));
-                        active_weapon = weapons.len() - 1;
-                        pickup_message = Some(format!("{} RECOGIDO", kind.label()));
-                        pickup_message_timer = 2.0;
-                    }
+                if let Some(amount) = weapon::try_collect_pickup(&mut lvl.pickups, lvl.player.pos_x, lvl.player.pos_y) {
+                    weapon.add_ammo(amount);
+                    pickup_message = Some(format!("+{amount} MUNICION"));
+                    pickup_message_timer = 2.0;
                 }
                 pickup_message_timer = (pickup_message_timer - dt).max(0.0);
                 if pickup_message_timer <= 0.0 {
@@ -457,7 +461,6 @@ fn main() {
                         lvl.enemies.len(),
                         active.is_reloading(),
                         active.kind().label(),
-                        weapons.len() > 1,
                     );
                 }
                 if let Some(msg) = &pickup_message {

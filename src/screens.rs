@@ -77,7 +77,7 @@ pub fn draw_welcome(d: &mut RaylibDrawHandle, window_width: i32, window_height: 
     draw_illustration(d, window_width, window_height);
     d.draw_text("RAY CASTER", window_width / 2 - 190, window_height / 2 - 110, 60, Color::GOLD);
     d.draw_text(
-        "WASD mover | shift correr | mouse rotar | click disparar | R recargar | 1/2 cambiar arma | M alterna 2D/3D",
+        "WASD mover | shift correr | mouse rotar | click disparar | R recargar | 1/2/3 cambiar arma | M alterna 2D/3D",
         window_width / 2 - 490,
         window_height / 2,
         18,
@@ -203,7 +203,6 @@ pub fn draw_hud(
     enemies_left: usize,
     reloading: bool,
     weapon_label: &str,
-    multiple_weapons: bool,
 ) {
     let panel_y = window_height - HUD_PANEL_HEIGHT;
     d.draw_rectangle(0, panel_y, window_width, HUD_PANEL_HEIGHT, Color::new(8, 8, 12, 215));
@@ -246,8 +245,7 @@ pub fn draw_hud(
         d.draw_text("[R] RECARGAR", ammo_x, bar_y + seg_h + 4, 16, Color::RED);
     }
 
-    let weapon_display =
-        if multiple_weapons { format!("{weapon_label} [1][2]") } else { weapon_label.to_string() };
+    let weapon_display = format!("{weapon_label} [1][2][3]");
     d.draw_text(&weapon_display, bullets_x + max_ammo * 11 + 14, label_y, 16, Color::GOLD);
 
     // contador de enemigos, alineado a la derecha

@@ -17,13 +17,15 @@ const HIT_RADIUS: f32 = 20.0; // radio de colision angular del enemigo, en px de
 const GUN_SCALE: f32 = 0.45; // porcion del ancho de ventana que ocupa el arma
 const ALPHA_THRESHOLD: u8 = 20;
 const SILHOUETTE_COLOR: Color = Color::new(90, 90, 90, 255);
-const PICKUP_RADIUS: f32 = 24.0; // px, distancia jugador-arma para recogerla
+const PICKUP_RADIUS: f32 = 24.0; // px, distancia jugador-caja para recogerla
 const PICKUP_SIZE: f32 = 26.0; // px de mundo, tamaño del brillo del pickup en pantalla
+const AMMO_PICKUP_AMOUNT: i32 = 6; // municion que da cada caja recogida
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum WeaponKind {
     Pistol,
     Rifle,
+    Shotgun,
 }
 
 struct WeaponStats {
@@ -37,6 +39,7 @@ impl WeaponKind {
         match self {
             WeaponKind::Pistol => WeaponStats { fire_duration: 0.2, max_ammo: 12, reload_duration: 1.2 },
             WeaponKind::Rifle => WeaponStats { fire_duration: 0.1, max_ammo: 24, reload_duration: 1.6 },
+            WeaponKind::Shotgun => WeaponStats { fire_duration: 0.5, max_ammo: 6, reload_duration: 1.8 },
         }
     }
 
@@ -44,6 +47,7 @@ impl WeaponKind {
         match self {
             WeaponKind::Pistol => "PISTOLA",
             WeaponKind::Rifle => "RIFLE",
+            WeaponKind::Shotgun => "ESCOPETA",
         }
     }
 
@@ -52,14 +56,15 @@ impl WeaponKind {
         match self {
             WeaponKind::Pistol => Color::WHITE,
             WeaponKind::Rifle => Color::new(170, 210, 255, 255),
+            WeaponKind::Shotgun => Color::new(255, 190, 150, 255),
         }
     }
 }
 
+// caja de municion tirada en el mapa; recarga el arma activa al pasar por encima
 pub struct Pickup {
     pub x: f32,
     pub y: f32,
-    pub kind: WeaponKind,
 }
 
 pub struct GunSprite {
@@ -138,6 +143,10 @@ impl Weapon {
 
     pub fn max_ammo(&self) -> i32 {
         self.kind.stats().max_ammo
+    }
+
+    pub fn add_ammo(&mut self, amount: i32) {
+        self.ammo = (self.ammo + amount).min(self.kind.stats().max_ammo);
     }
 
     pub fn is_reloading(&self) -> bool {
@@ -260,14 +269,15 @@ pub fn draw_gun(fb: &mut Framebuffer, gun: &GunSprite, weapon: &Weapon, window_w
     }
 }
 
-// recoge el pickup mas cercano si el jugador esta encima; devuelve el arma recogida
-pub fn try_collect_pickup(pickups: &mut Vec<Pickup>, player_x: f32, player_y: f32) -> Option<WeaponKind> {
+// recoge la caja mas cercana si el jugador esta encima; devuelve la municion otorgada
+pub fn try_collect_pickup(pickups: &mut Vec<Pickup>, player_x: f32, player_y: f32) -> Option<i32> {
     let idx = pickups.iter().position(|p| {
         let dx = p.x - player_x;
         let dy = p.y - player_y;
         (dx * dx + dy * dy).sqrt() < PICKUP_RADIUS
     })?;
-    Some(pickups.remove(idx).kind)
+    pickups.remove(idx);
+    Some(AMMO_PICKUP_AMOUNT)
 }
 
 // brillo tipo diamante que marca las armas tiradas en el mapa; reusa la proyeccion de billboard

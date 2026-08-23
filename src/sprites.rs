@@ -21,7 +21,9 @@ const ANIM_FRAME_SECONDS: f32 = 0.15;
 const CHASE_RANGE: f32 = 500.0; // px, radio de deteccion del perseguidor
 const CHASE_SPEED: f32 = 90.0; // px/seg
 const STOP_DISTANCE: f32 = 24.0; // no se acerca mas al jugador que esto
-const ENEMY_RADIUS: f32 = 10.0;
+// fraccion de block_size usada como hitbox; debe cubrir el ancho visual del sprite
+// (aspect ~0.67 => medio ancho ~0.33*block_size) o el enemigo se ve traslapando la pared
+const ENEMY_RADIUS_FACTOR: f32 = 0.35;
 
 const SHOOTER_RANGE: f32 = 500.0; // px, radio de deteccion del tirador
 const SHOOTER_PREFERRED_DIST: f32 = 260.0; // se acerca hasta esta distancia, no mas
@@ -168,12 +170,8 @@ impl Enemy {
 
 fn enemy_collides(maze: &Maze, block_size: i32, x: f32, y: f32) -> bool {
     let bs = block_size as f32;
-    let corners = [
-        (x - ENEMY_RADIUS, y - ENEMY_RADIUS),
-        (x + ENEMY_RADIUS, y - ENEMY_RADIUS),
-        (x - ENEMY_RADIUS, y + ENEMY_RADIUS),
-        (x + ENEMY_RADIUS, y + ENEMY_RADIUS),
-    ];
+    let r = bs * ENEMY_RADIUS_FACTOR;
+    let corners = [(x - r, y - r), (x + r, y - r), (x - r, y + r), (x + r, y + r)];
     corners.iter().any(|&(cx, cy)| {
         let i = cx / bs;
         let j = cy / bs;
