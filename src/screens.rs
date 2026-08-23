@@ -1,6 +1,8 @@
 use raylib::prelude::*;
 
 const AVAILABLE_LEVELS: [&str; 3] = ["levels/level1.txt", "levels/level2.txt", "levels/level3.txt"];
+const LEVEL_TEXTURE_DIRS: [&str; 3] =
+    ["assets/textures/level1", "assets/textures/level2", "assets/textures/level3"];
 pub const LEVEL_COUNT: usize = AVAILABLE_LEVELS.len();
 
 const BG_MENU: Color = Color::new(15, 15, 25, 255);
@@ -22,6 +24,10 @@ pub fn level_path(index: usize) -> String {
 
 pub fn level_exists(index: usize) -> bool {
     std::path::Path::new(&crate::paths::resolve(AVAILABLE_LEVELS[index])).exists()
+}
+
+pub fn level_texture_dir(index: usize) -> &'static str {
+    LEVEL_TEXTURE_DIRS[index]
 }
 
 pub fn draw_welcome(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {

@@ -1,14 +1,8 @@
 use raylib::prelude::*;
 
-const TEXTURE_PATHS: [&str; 4] = [
-    "assets/textures/wall1.png",
-    "assets/textures/wall2.png",
-    "assets/textures/wall3.png",
-    "assets/textures/wall4.png",
-];
-
-const FLOOR_PATH: &str = "assets/textures/floor.png";
-const CEILING_PATH: &str = "assets/textures/ceiling.png";
+const WALL_FILES: [&str; 4] = ["wall1.png", "wall2.png", "wall3.png", "wall4.png"];
+const FLOOR_FILE: &str = "floor.png";
+const CEILING_FILE: &str = "ceiling.png";
 
 const FALLBACK_SIZE: i32 = 64;
 const CHECKER_TILE: i32 = 8;
@@ -59,8 +53,10 @@ pub struct TextureManager {
 }
 
 impl TextureManager {
-    pub fn new() -> Self {
-        let loaded: Vec<Option<(i32, i32, Vec<Color>)>> = TEXTURE_PATHS.iter().map(|path| try_load(path)).collect();
+    // dir: carpeta de tema del nivel, p.ej. "assets/textures/level1"
+    pub fn new(dir: &str) -> Self {
+        let loaded: Vec<Option<(i32, i32, Vec<Color>)>> =
+            WALL_FILES.iter().map(|file| try_load(&format!("{dir}/{file}"))).collect();
         let (width, height) =
             loaded.iter().flatten().next().map(|(w, h, _)| (*w, *h)).unwrap_or((FALLBACK_SIZE, FALLBACK_SIZE));
 
@@ -76,8 +72,10 @@ impl TextureManager {
             })
             .collect();
 
-        let (floor_width, floor_height, floor_pixels) = load_pixels_or_fallback(FLOOR_PATH, FLOOR_FALLBACK);
-        let (ceiling_width, ceiling_height, ceiling_pixels) = load_pixels_or_fallback(CEILING_PATH, CEILING_FALLBACK);
+        let (floor_width, floor_height, floor_pixels) =
+            load_pixels_or_fallback(&format!("{dir}/{FLOOR_FILE}"), FLOOR_FALLBACK);
+        let (ceiling_width, ceiling_height, ceiling_pixels) =
+            load_pixels_or_fallback(&format!("{dir}/{CEILING_FILE}"), CEILING_FALLBACK);
 
         Self {
             width,
@@ -111,8 +109,16 @@ impl TextureManager {
     }
 }
 
-impl Default for TextureManager {
-    fn default() -> Self {
-        Self::new()
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cada_nivel_tiene_su_set_de_texturas_real() {
+        for dir in ["assets/textures/level1", "assets/textures/level2", "assets/textures/level3"] {
+            for file in WALL_FILES.iter().chain([&FLOOR_FILE, &CEILING_FILE]) {
+                assert!(try_load(&format!("{dir}/{file}")).is_some(), "falta {dir}/{file}, cayo al fallback");
+            }
+        }
     }
 }

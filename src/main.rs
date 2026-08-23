@@ -47,10 +47,11 @@ struct LevelState {
     player: Player,
     enemies: Vec<Enemy>,
     health: f32,
+    textures: TextureManager,
 }
 
 impl LevelState {
-    fn load(path: &str) -> Result<Self, String> {
+    fn load(path: &str, texture_dir: &str) -> Result<Self, String> {
         let maze: Maze = maze::load_maze(path)?;
         let spawn = maze::find_char(&maze, 'p').ok_or_else(|| "el mapa no tiene spawn 'p'".to_string())?;
         let goal = maze::find_char(&maze, 'g').ok_or_else(|| "el mapa no tiene meta 'g'".to_string())?;
@@ -78,8 +79,20 @@ impl LevelState {
                 Enemy { x, y }
             })
             .collect();
+        let textures = TextureManager::new(texture_dir);
 
-        Ok(Self { maze, goal, goal_center, block_size, origin_x, origin_y, player, enemies, health: PLAYER_MAX_HEALTH })
+        Ok(Self {
+            maze,
+            goal,
+            goal_center,
+            block_size,
+            origin_x,
+            origin_y,
+            player,
+            enemies,
+            health: PLAYER_MAX_HEALTH,
+            textures,
+        })
     }
 }
 
@@ -101,7 +114,6 @@ fn main() {
         .load_texture_from_image(&thread, &blank_image)
         .expect("no se pudo crear la textura del framebuffer");
 
-    let textures = TextureManager::new();
     let sprite_manager = SpriteManager::new();
     let gun_sprite = GunSprite::new();
 
@@ -154,7 +166,9 @@ fn main() {
                     selected_level = (selected_level + screens::LEVEL_COUNT - 1) % screens::LEVEL_COUNT;
                 }
                 if rl.is_key_pressed(KeyboardKey::KEY_ENTER) && screens::level_exists(selected_level) {
-                    match LevelState::load(&screens::level_path(selected_level)) {
+                    let path = screens::level_path(selected_level);
+                    let texture_dir = screens::level_texture_dir(selected_level);
+                    match LevelState::load(&path, texture_dir) {
                         Ok(lvl) => {
                             level = Some(lvl);
                             level_error = None;
@@ -311,7 +325,7 @@ fn main() {
                         WINDOW_HEIGHT,
                         lvl.block_size,
                         lvl.player.fov,
-                        &textures,
+                        &lvl.textures,
                     );
                     sprites::render_sprites(
                         &mut framebuffer,
