@@ -10,9 +10,40 @@ const TEXTURE_PATHS: [&str; 4] = [
 const FLOOR_PATH: &str = "assets/textures/floor.png";
 const CEILING_PATH: &str = "assets/textures/ceiling.png";
 
-fn load_pixels(path: &str) -> (i32, i32, Vec<Color>) {
-    let image = Image::load_image(path).unwrap_or_else(|e| panic!("no se pudo cargar la textura {path}: {e}"));
-    (image.width(), image.height(), image.get_image_data().to_vec())
+const FALLBACK_SIZE: i32 = 64;
+const CHECKER_TILE: i32 = 8;
+
+const WALL_FALLBACK_COLORS: [(Color, Color); 4] = [
+    (Color::new(200, 50, 50, 255), Color::new(120, 20, 20, 255)),
+    (Color::new(50, 200, 50, 255), Color::new(20, 120, 20, 255)),
+    (Color::new(50, 50, 200, 255), Color::new(20, 20, 120, 255)),
+    (Color::new(200, 200, 50, 255), Color::new(120, 120, 20, 255)),
+];
+const FLOOR_FALLBACK: (Color, Color) = (Color::new(90, 90, 90, 255), Color::new(60, 60, 60, 255));
+const CEILING_FALLBACK: (Color, Color) = (Color::new(40, 60, 90, 255), Color::new(20, 30, 60, 255));
+
+fn checkerboard(width: i32, height: i32, color_a: Color, color_b: Color) -> Vec<Color> {
+    (0..height)
+        .flat_map(|y| (0..width).map(move |x| (x, y)))
+        .map(|(x, y)| if ((x / CHECKER_TILE) + (y / CHECKER_TILE)) % 2 == 0 { color_a } else { color_b })
+        .collect()
+}
+
+fn try_load(path: &str) -> Option<(i32, i32, Vec<Color>)> {
+    match Image::load_image(path) {
+        Ok(image) => Some((image.width(), image.height(), image.get_image_data().to_vec())),
+        Err(e) => {
+            eprintln!("advertencia: no se pudo cargar la textura {path}: {e}, se usara un reemplazo");
+            None
+        }
+    }
+}
+
+fn load_pixels_or_fallback(path: &str, fallback: (Color, Color)) -> (i32, i32, Vec<Color>) {
+    match try_load(path) {
+        Some(data) => data,
+        None => (FALLBACK_SIZE, FALLBACK_SIZE, checkerboard(FALLBACK_SIZE, FALLBACK_SIZE, fallback.0, fallback.1)),
+    }
 }
 
 pub struct TextureManager {
@@ -29,20 +60,24 @@ pub struct TextureManager {
 
 impl TextureManager {
     pub fn new() -> Self {
-        let images: Vec<Image> = TEXTURE_PATHS
-            .iter()
-            .map(|path| {
-                Image::load_image(path)
-                    .unwrap_or_else(|e| panic!("no se pudo cargar la textura {path}: {e}"))
+        let loaded: Vec<Option<(i32, i32, Vec<Color>)>> = TEXTURE_PATHS.iter().map(|path| try_load(path)).collect();
+        let (width, height) =
+            loaded.iter().flatten().next().map(|(w, h, _)| (*w, *h)).unwrap_or((FALLBACK_SIZE, FALLBACK_SIZE));
+
+        let pixels = loaded
+            .into_iter()
+            .enumerate()
+            .map(|(i, data)| match data {
+                Some((w, h, px)) if w == width && h == height => px,
+                _ => {
+                    let (a, b) = WALL_FALLBACK_COLORS[i % WALL_FALLBACK_COLORS.len()];
+                    checkerboard(width, height, a, b)
+                }
             })
             .collect();
 
-        let width = images[0].width();
-        let height = images[0].height();
-        let pixels = images.iter().map(|img| img.get_image_data().to_vec()).collect();
-
-        let (floor_width, floor_height, floor_pixels) = load_pixels(FLOOR_PATH);
-        let (ceiling_width, ceiling_height, ceiling_pixels) = load_pixels(CEILING_PATH);
+        let (floor_width, floor_height, floor_pixels) = load_pixels_or_fallback(FLOOR_PATH, FLOOR_FALLBACK);
+        let (ceiling_width, ceiling_height, ceiling_pixels) = load_pixels_or_fallback(CEILING_PATH, CEILING_FALLBACK);
 
         Self {
             width,

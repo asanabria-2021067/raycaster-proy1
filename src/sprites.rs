@@ -13,6 +13,7 @@ const SPRITE_PATHS: [&str; 4] = [
     "assets/sprites/enemy_03.png",
 ];
 
+const SILHOUETTE_COLOR: Color = Color::new(180, 20, 20, 255);
 const ALPHA_THRESHOLD: u8 = 20;
 const FOV_MARGIN: f32 = 0.3; // margen para no recortar sprites a medio entrar en pantalla
 const ANIM_FRAME_SECONDS: f32 = 0.15;
@@ -23,6 +24,9 @@ const STOP_DISTANCE: f32 = 24.0; // no se acerca mas al jugador que esto
 const ENEMY_RADIUS: f32 = 10.0;
 
 pub fn advance_frame(current: usize, timer: &mut f32, dt: f32, frame_count: usize) -> usize {
+    if frame_count == 0 {
+        return 0;
+    }
     *timer += dt;
     if *timer >= ANIM_FRAME_SECONDS {
         *timer -= ANIM_FRAME_SECONDS;
@@ -40,17 +44,30 @@ pub struct SpriteManager {
 
 impl SpriteManager {
     pub fn new() -> Self {
-        let images: Vec<Image> = SPRITE_PATHS
+        let loaded: Vec<Option<(i32, i32, Vec<Color>)>> = SPRITE_PATHS
             .iter()
-            .map(|path| {
-                Image::load_image(path)
-                    .unwrap_or_else(|e| panic!("no se pudo cargar el sprite {path}: {e}"))
+            .map(|path| match Image::load_image(path) {
+                Ok(image) => Some((image.width(), image.height(), image.get_image_data().to_vec())),
+                Err(e) => {
+                    eprintln!("advertencia: no se pudo cargar el sprite {path}: {e}, se usara un reemplazo");
+                    None
+                }
             })
             .collect();
 
-        let width = images[0].width();
-        let height = images[0].height();
-        let frames = images.iter().map(|img| img.get_image_data().to_vec()).collect();
+        if loaded.iter().all(Option::is_none) {
+            eprintln!("advertencia: ningun sprite de enemigo cargo, enemigos deshabilitados");
+            return Self { width: 0, height: 0, frames: Vec::new() };
+        }
+
+        let (width, height) = loaded.iter().flatten().next().map(|(w, h, _)| (*w, *h)).unwrap();
+        let frames = loaded
+            .into_iter()
+            .map(|data| match data {
+                Some((w, h, px)) if w == width && h == height => px,
+                _ => vec![SILHOUETTE_COLOR; (width * height) as usize],
+            })
+            .collect();
 
         Self { width, height, frames }
     }
@@ -145,6 +162,10 @@ pub fn render_sprites(
     sprites: &SpriteManager,
     frame: usize,
 ) {
+    if sprites.frame_count() == 0 {
+        return;
+    }
+
     let dist_to_projection_plane = (window_width as f32 / 2.0) / (fov / 2.0).tan();
 
     // pintar del mas lejano al mas cercano para que los sprites cercanos tapen a los lejanos

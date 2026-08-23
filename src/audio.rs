@@ -3,36 +3,41 @@ use raylib::prelude::*;
 const STEP_INTERVAL: f32 = 0.35;
 
 pub struct AudioAssets<'aud> {
-    pub bgm: Music<'aud>,
-    pub shoot: Sound<'aud>,
-    pub step: Sound<'aud>,
-    pub win: Sound<'aud>,
-    pub lose: Sound<'aud>,
+    pub bgm: Option<Music<'aud>>,
+    pub shoot: Option<Sound<'aud>>,
+    pub step: Option<Sound<'aud>>,
+    pub win: Option<Sound<'aud>>,
+    pub lose: Option<Sound<'aud>>,
 }
 
 impl<'aud> AudioAssets<'aud> {
     pub fn new(audio: &'aud RaylibAudio) -> Self {
         let bgm = audio
             .new_music("assets/audio/bgm.ogg")
-            .unwrap_or_else(|e| panic!("no se pudo cargar bgm.ogg: {e}"));
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar bgm.ogg: {e}, sin musica de fondo"))
+            .ok();
         let shoot = audio
             .new_sound("assets/audio/shoot.wav")
-            .unwrap_or_else(|e| panic!("no se pudo cargar shoot.wav: {e}"));
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar shoot.wav: {e}, sin sonido de disparo"))
+            .ok();
         let step = audio
             .new_sound("assets/audio/step.wav")
-            .unwrap_or_else(|e| panic!("no se pudo cargar step.wav: {e}"));
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar step.wav: {e}, sin sonido de pasos"))
+            .ok();
         let win = audio
             .new_sound("assets/audio/win.wav")
-            .unwrap_or_else(|e| panic!("no se pudo cargar win.wav: {e}"));
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar win.wav: {e}, sin sonido de victoria"))
+            .ok();
         let lose = audio
             .new_sound("assets/audio/lose.wav")
-            .unwrap_or_else(|e| panic!("no se pudo cargar lose.wav: {e}"));
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar lose.wav: {e}, sin sonido de derrota"))
+            .ok();
         Self { bgm, shoot, step, win, lose }
     }
 }
 
 // acumula tiempo en movimiento; suena un paso cada STEP_INTERVAL segundos
-pub fn update_footsteps(timer: &mut f32, dt: f32, is_moving: bool, step_sound: &Sound) {
+pub fn update_footsteps(timer: &mut f32, dt: f32, is_moving: bool, step_sound: Option<&Sound>) {
     if !is_moving {
         *timer = STEP_INTERVAL;
         return;
@@ -40,6 +45,8 @@ pub fn update_footsteps(timer: &mut f32, dt: f32, is_moving: bool, step_sound: &
     *timer += dt;
     if *timer >= STEP_INTERVAL {
         *timer = 0.0;
-        step_sound.play();
+        if let Some(sound) = step_sound {
+            sound.play();
+        }
     }
 }

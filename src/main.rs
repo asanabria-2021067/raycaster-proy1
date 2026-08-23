@@ -49,12 +49,16 @@ struct LevelState {
 }
 
 impl LevelState {
-    fn load(path: &str) -> Self {
-        let maze: Maze = maze::load_maze(path);
-        let spawn = maze::find_char(&maze, 'p').expect("el mapa no tiene spawn 'p'");
-        let goal = maze::find_char(&maze, 'g').expect("el mapa no tiene meta 'g'");
-        assert!(!maze::is_wall(&maze, spawn.0, spawn.1), "el spawn cae sobre una pared");
-        assert!(!maze::is_wall(&maze, goal.0, goal.1), "la meta cae sobre una pared");
+    fn load(path: &str) -> Result<Self, String> {
+        let maze: Maze = maze::load_maze(path)?;
+        let spawn = maze::find_char(&maze, 'p').ok_or_else(|| "el mapa no tiene spawn 'p'".to_string())?;
+        let goal = maze::find_char(&maze, 'g').ok_or_else(|| "el mapa no tiene meta 'g'".to_string())?;
+        if maze::is_wall(&maze, spawn.0, spawn.1) {
+            return Err("el spawn cae sobre una pared".to_string());
+        }
+        if maze::is_wall(&maze, goal.0, goal.1) {
+            return Err("la meta cae sobre una pared".to_string());
+        }
 
         let cols = maze.first().map_or(0, |row| row.len()) as i32;
         let rows = maze.len() as i32;
@@ -74,7 +78,7 @@ impl LevelState {
             })
             .collect();
 
-        Self { maze, goal, goal_center, block_size, origin_x, origin_y, player, enemies, health: PLAYER_MAX_HEALTH }
+        Ok(Self { maze, goal, goal_center, block_size, origin_x, origin_y, player, enemies, health: PLAYER_MAX_HEALTH })
     }
 }
 
@@ -102,6 +106,7 @@ fn main() {
     let mut state = GameState::Welcome;
     let mut selected_level = 0usize;
     let mut level: Option<LevelState> = None;
+    let mut level_error: Option<String> = None;
 
     let mut mode_2d = false;
     let mut anim_frame = 0usize;
@@ -127,15 +132,26 @@ fn main() {
                     selected_level = (selected_level + screens::LEVEL_COUNT - 1) % screens::LEVEL_COUNT;
                 }
                 if rl.is_key_pressed(KeyboardKey::KEY_ENTER) && screens::level_exists(selected_level) {
-                    level = Some(LevelState::load(screens::level_path(selected_level)));
-                    mode_2d = false;
-                    anim_frame = 0;
-                    anim_timer = 0.0;
-                    weapon = Weapon::new();
-                    step_timer = 0.0;
-                    damage_cooldown = 0.0;
-                    audio_assets.bgm.play_stream();
-                    state = GameState::Playing;
+                    match LevelState::load(screens::level_path(selected_level)) {
+                        Ok(lvl) => {
+                            level = Some(lvl);
+                            level_error = None;
+                            mode_2d = false;
+                            anim_frame = 0;
+                            anim_timer = 0.0;
+                            weapon = Weapon::new();
+                            step_timer = 0.0;
+                            damage_cooldown = 0.0;
+                            if let Some(bgm) = &audio_assets.bgm {
+                                bgm.play_stream();
+                            }
+                            state = GameState::Playing;
+                        }
+                        Err(msg) => {
+                            eprintln!("advertencia: no se pudo cargar el nivel: {msg}");
+                            level_error = Some(msg);
+                        }
+                    }
                 }
             }
             GameState::Playing => {
@@ -150,14 +166,18 @@ fn main() {
                     enemy.update_ai(&lvl.maze, lvl.block_size, lvl.player.pos_x, lvl.player.pos_y, dt);
                 }
 
-                audio_assets.bgm.update_stream();
+                if let Some(bgm) = &audio_assets.bgm {
+                    bgm.update_stream();
+                }
                 let is_moving = move_input.forward != 0.0 || move_input.strafe != 0.0;
-                audio::update_footsteps(&mut step_timer, dt, is_moving, &audio_assets.step);
+                audio::update_footsteps(&mut step_timer, dt, is_moving, audio_assets.step.as_ref());
 
                 weapon.update(dt);
                 let fire_pressed = rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) || input::gamepad_fire_pressed(&rl);
                 if fire_pressed && weapon.try_fire() {
-                    audio_assets.shoot.play();
+                    if let Some(shoot) = &audio_assets.shoot {
+                        shoot.play();
+                    }
                     weapon::hitscan(
                         &mut lvl.enemies,
                         &lvl.maze,
@@ -186,8 +206,12 @@ fn main() {
                     damage_cooldown = DAMAGE_COOLDOWN;
                 }
                 if lvl.health <= 0.0 {
-                    audio_assets.bgm.stop_stream();
-                    audio_assets.lose.play();
+                    if let Some(bgm) = &audio_assets.bgm {
+                        bgm.stop_stream();
+                    }
+                    if let Some(lose) = &audio_assets.lose {
+                        lose.play();
+                    }
                     state = GameState::GameOver;
                 }
 
@@ -196,8 +220,12 @@ fn main() {
                     (lvl.player.pos_y / lvl.block_size as f32) as usize,
                 );
                 if player_cell == lvl.goal {
-                    audio_assets.bgm.stop_stream();
-                    audio_assets.win.play();
+                    if let Some(bgm) = &audio_assets.bgm {
+                        bgm.stop_stream();
+                    }
+                    if let Some(win) = &audio_assets.win {
+                        win.play();
+                    }
                     state = GameState::Success;
                 }
             }
@@ -295,7 +323,9 @@ fn main() {
 
         match state {
             GameState::Welcome => screens::draw_welcome(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
-            GameState::LevelSelect => screens::draw_level_select(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT, selected_level),
+            GameState::LevelSelect => {
+                screens::draw_level_select(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT, selected_level, level_error.as_deref())
+            }
             GameState::Playing => {
                 d.draw_texture(&texture, 0, 0, Color::WHITE);
                 if let Some(lvl) = &level {

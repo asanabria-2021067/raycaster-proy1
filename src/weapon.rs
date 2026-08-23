@@ -17,6 +17,7 @@ const FIRE_DURATION: f32 = 0.2; // duracion total de la animacion de disparo/ret
 const HIT_RADIUS: f32 = 20.0; // radio de colision angular del enemigo, en px de mundo
 const GUN_SCALE: f32 = 0.6; // porcion del ancho de ventana que ocupa el arma
 const ALPHA_THRESHOLD: u8 = 20;
+const SILHOUETTE_COLOR: Color = Color::new(90, 90, 90, 255);
 pub const MAX_AMMO: i32 = 12;
 const RELOAD_DURATION: f32 = 1.2;
 
@@ -28,16 +29,30 @@ pub struct GunSprite {
 
 impl GunSprite {
     pub fn new() -> Self {
-        let images: Vec<Image> = GUN_PATHS
+        let loaded: Vec<Option<(i32, i32, Vec<Color>)>> = GUN_PATHS
             .iter()
-            .map(|path| {
-                Image::load_image(path).unwrap_or_else(|e| panic!("no se pudo cargar el arma {path}: {e}"))
+            .map(|path| match Image::load_image(path) {
+                Ok(image) => Some((image.width(), image.height(), image.get_image_data().to_vec())),
+                Err(e) => {
+                    eprintln!("advertencia: no se pudo cargar el arma {path}: {e}, se usara un reemplazo");
+                    None
+                }
             })
             .collect();
 
-        let width = images[0].width();
-        let height = images[0].height();
-        let frames = images.iter().map(|img| img.get_image_data().to_vec()).collect();
+        if loaded.iter().all(Option::is_none) {
+            eprintln!("advertencia: ningun sprite de arma cargo, arma deshabilitada");
+            return Self { width: 0, height: 0, frames: Vec::new() };
+        }
+
+        let (width, height) = loaded.iter().flatten().next().map(|(w, h, _)| (*w, *h)).unwrap();
+        let frames = loaded
+            .into_iter()
+            .map(|data| match data {
+                Some((w, h, px)) if w == width && h == height => px,
+                _ => vec![SILHOUETTE_COLOR; (width * height) as usize],
+            })
+            .collect();
 
         Self { width, height, frames }
     }
@@ -164,6 +179,9 @@ pub fn hitscan(
 }
 
 pub fn draw_gun(fb: &mut Framebuffer, gun: &GunSprite, weapon: &Weapon, window_width: i32, window_height: i32) {
+    if gun.frames.is_empty() {
+        return;
+    }
     let frame = weapon.frame_index();
     let sprite_w = window_width as f32 * GUN_SCALE;
     let sprite_h = sprite_w;

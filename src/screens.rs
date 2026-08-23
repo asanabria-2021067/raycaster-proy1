@@ -37,7 +37,13 @@ pub fn draw_welcome(d: &mut RaylibDrawHandle, window_width: i32, window_height: 
     d.draw_text("ENTER para continuar", window_width / 2 - 140, window_height / 2 + 60, 26, Color::SKYBLUE);
 }
 
-pub fn draw_level_select(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32, selected: usize) {
+pub fn draw_level_select(
+    d: &mut RaylibDrawHandle,
+    window_width: i32,
+    window_height: i32,
+    selected: usize,
+    error: Option<&str>,
+) {
     d.clear_background(BG_MENU);
     d.draw_text("SELECCIONA NIVEL", window_width / 2 - 230, window_height / 2 - 160, 44, Color::GOLD);
 
@@ -66,6 +72,10 @@ pub fn draw_level_select(d: &mut RaylibDrawHandle, window_width: i32, window_hei
         20,
         Color::LIGHTGRAY,
     );
+
+    if let Some(msg) = error {
+        d.draw_text(&format!("no se pudo cargar el nivel: {msg}"), window_width / 2 - 300, window_height - 50, 20, Color::RED);
+    }
 }
 
 pub fn draw_success(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {

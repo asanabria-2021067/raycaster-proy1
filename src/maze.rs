@@ -2,10 +2,9 @@ pub type Maze = Vec<Vec<char>>;
 
 const WALL_CHARS: [char; 4] = ['+', '-', '|', '#'];
 
-pub fn load_maze(path: &str) -> Maze {
-    let content = std::fs::read_to_string(path)
-        .unwrap_or_else(|e| panic!("no se pudo leer el mapa {path}: {e}"));
-    content.lines().map(|line| line.chars().collect()).collect()
+pub fn load_maze(path: &str) -> Result<Maze, String> {
+    let content = std::fs::read_to_string(path).map_err(|e| format!("no se pudo leer el mapa {path}: {e}"))?;
+    Ok(content.lines().map(|line| line.chars().collect()).collect())
 }
 
 pub fn is_wall(maze: &Maze, i: usize, j: usize) -> bool {
