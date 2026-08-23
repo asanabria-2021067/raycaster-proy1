@@ -297,7 +297,7 @@ fn main() {
                         lvl.player.a,
                         lvl.player.fov,
                         lvl.block_size,
-                        WINDOW_WIDTH as usize,
+                        WINDOW_WIDTH as usize / 2,
                     );
                     let zbuffer = render3d::render_3d(
                         &mut framebuffer,
