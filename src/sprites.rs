@@ -18,10 +18,17 @@ const ALPHA_THRESHOLD: u8 = 20;
 const FOV_MARGIN: f32 = 0.3; // margen para no recortar sprites a medio entrar en pantalla
 const ANIM_FRAME_SECONDS: f32 = 0.15;
 
-const CHASE_RANGE: f32 = 400.0; // px, radio de deteccion
+const CHASE_RANGE: f32 = 500.0; // px, radio de deteccion del perseguidor
 const CHASE_SPEED: f32 = 90.0; // px/seg
 const STOP_DISTANCE: f32 = 24.0; // no se acerca mas al jugador que esto
 const ENEMY_RADIUS: f32 = 10.0;
+
+const SHOOTER_RANGE: f32 = 500.0; // px, radio de deteccion del tirador
+const SHOOTER_PREFERRED_DIST: f32 = 260.0; // se acerca hasta esta distancia, no mas
+const SHOOTER_FIRE_COOLDOWN: f32 = 1.4; // seg entre disparos
+const SHOOTER_DAMAGE: f32 = 10.0;
+
+const SHOOTER_TINT: Color = Color::new(90, 150, 255, 255);
 
 pub fn advance_frame(current: usize, timer: &mut f32, dt: f32, frame_count: usize) -> usize {
     if frame_count == 0 {
@@ -94,28 +101,28 @@ impl Default for SpriteManager {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum EnemyKind {
+    Chaser,
+    Shooter,
+}
+
 pub struct Enemy {
     pub x: f32,
     pub y: f32,
+    pub kind: EnemyKind,
+    fire_cooldown: f32,
 }
 
 impl Enemy {
-    // persigue al jugador si esta en rango y hay linea de vision directa (sin paredes de por medio)
-    pub fn update_ai(&mut self, maze: &Maze, block_size: i32, player_x: f32, player_y: f32, dt: f32) {
-        let dx = player_x - self.x;
-        let dy = player_y - self.y;
-        let dist = (dx * dx + dy * dy).sqrt();
-        if !(STOP_DISTANCE..=CHASE_RANGE).contains(&dist) {
-            return;
-        }
+    pub fn new(x: f32, y: f32, kind: EnemyKind) -> Self {
+        Self { x, y, kind, fire_cooldown: 0.0 }
+    }
 
-        let angle = dy.atan2(dx);
-        let wall_dist = cast_ray(maze, self.x, self.y, angle, block_size).distance;
-        if wall_dist < dist {
-            return;
-        }
-
-        let step = CHASE_SPEED * dt / dist;
+    // avanza siempre hacia el jugador si esta en rango, deslizandose contra las paredes
+    // que encuentre en el camino (no requiere linea de vision directa)
+    fn approach(&mut self, maze: &Maze, block_size: i32, dx: f32, dy: f32, dist: f32, dt: f32) {
+        let step = CHASE_SPEED * dt / dist.max(1.0);
         let new_x = self.x + dx * step;
         let new_y = self.y + dy * step;
         if !enemy_collides(maze, block_size, new_x, self.y) {
@@ -123,6 +130,38 @@ impl Enemy {
         }
         if !enemy_collides(maze, block_size, self.x, new_y) {
             self.y = new_y;
+        }
+    }
+
+    // actualiza movimiento/disparo; devuelve Some(daño) si le acierta un tiro al jugador este frame
+    pub fn update_ai(&mut self, maze: &Maze, block_size: i32, player_x: f32, player_y: f32, dt: f32) -> Option<f32> {
+        let dx = player_x - self.x;
+        let dy = player_y - self.y;
+        let dist = (dx * dx + dy * dy).sqrt();
+        self.fire_cooldown = (self.fire_cooldown - dt).max(0.0);
+
+        match self.kind {
+            EnemyKind::Chaser => {
+                if dist > STOP_DISTANCE && dist <= CHASE_RANGE {
+                    self.approach(maze, block_size, dx, dy, dist, dt);
+                }
+                None
+            }
+            EnemyKind::Shooter => {
+                if dist > SHOOTER_RANGE {
+                    return None;
+                }
+                if dist > SHOOTER_PREFERRED_DIST {
+                    self.approach(maze, block_size, dx, dy, dist, dt);
+                }
+                let angle = dy.atan2(dx);
+                let has_los = cast_ray(maze, self.x, self.y, angle, block_size).distance >= dist;
+                if has_los && dist > STOP_DISTANCE && self.fire_cooldown <= 0.0 {
+                    self.fire_cooldown = SHOOTER_FIRE_COOLDOWN;
+                    return Some(SHOOTER_DAMAGE);
+                }
+                None
+            }
         }
     }
 }
@@ -140,6 +179,16 @@ fn enemy_collides(maze: &Maze, block_size: i32, x: f32, y: f32) -> bool {
         let j = cy / bs;
         i < 0.0 || j < 0.0 || is_wall(maze, i as usize, j as usize)
     })
+}
+
+// multiplica canal por canal para distinguir tipos de enemigo sin arte nuevo
+fn tint(c: Color, t: Color) -> Color {
+    Color::new(
+        ((c.r as u32 * t.r as u32) / 255) as u8,
+        ((c.g as u32 * t.g as u32) / 255) as u8,
+        ((c.b as u32 * t.b as u32) / 255) as u8,
+        c.a,
+    )
 }
 
 fn normalize_angle(mut angle: f32) -> f32 {
@@ -222,6 +271,7 @@ pub fn render_sprites(
                 if color.a < ALPHA_THRESHOLD {
                     continue;
                 }
+                let color = if enemy.kind == EnemyKind::Shooter { tint(color, SHOOTER_TINT) } else { color };
                 fb.set_current_color(color);
                 fb.point(x, y);
             }

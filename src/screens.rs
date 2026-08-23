@@ -15,6 +15,7 @@ pub enum GameState {
     LevelSelect,
     Playing,
     Success,
+    Credits,
     GameOver,
 }
 
@@ -96,6 +97,30 @@ pub fn draw_success(d: &mut RaylibDrawHandle, window_width: i32, window_height: 
     );
 }
 
+pub fn draw_credits(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
+    d.clear_background(BG_SUCCESS);
+    d.draw_text("JUEGO TERMINADO", window_width / 2 - 300, window_height / 2 - 180, 50, Color::GOLD);
+    let lines = [
+        "Gracias por jugar RAY CASTER",
+        "",
+        "Motor de raycasting escrito en Rust con raylib",
+        "3 niveles, enemigos que persiguen y disparan,",
+        "armas intercambiables y HUD arcade",
+        "",
+        "Un proyecto de Angel Sanabria",
+    ];
+    for (i, line) in lines.iter().enumerate() {
+        d.draw_text(line, window_width / 2 - 260, window_height / 2 - 90 + i as i32 * 30, 20, Color::WHITE);
+    }
+    d.draw_text(
+        "ENTER para volver al inicio",
+        window_width / 2 - 190,
+        window_height / 2 + 160,
+        22,
+        Color::SKYBLUE,
+    );
+}
+
 const HUD_PANEL_HEIGHT: i32 = 74;
 const HUD_LIVES: i32 = 10; // segmentos de la barra de vida, estilo pips de arcade
 const HUD_BORDER: Color = Color::new(255, 195, 40, 255);
@@ -110,6 +135,8 @@ pub fn draw_hud(
     max_ammo: i32,
     enemies_left: usize,
     reloading: bool,
+    weapon_label: &str,
+    multiple_weapons: bool,
 ) {
     let panel_y = window_height - HUD_PANEL_HEIGHT;
     d.draw_rectangle(0, panel_y, window_width, HUD_PANEL_HEIGHT, Color::new(8, 8, 12, 215));
@@ -152,6 +179,10 @@ pub fn draw_hud(
         d.draw_text("[R] RECARGAR", ammo_x, bar_y + seg_h + 4, 16, Color::RED);
     }
 
+    let weapon_display =
+        if multiple_weapons { format!("{weapon_label} [1][2]") } else { weapon_label.to_string() };
+    d.draw_text(&weapon_display, bullets_x + max_ammo * 11 + 14, label_y, 16, Color::GOLD);
+
     // contador de enemigos, alineado a la derecha
     let enemies_text = format!("ENEMIGOS {enemies_left}");
     let text_w = d.measure_text(&enemies_text, 22);
@@ -162,6 +193,15 @@ pub fn draw_hud(
 
 pub fn draw_fps(d: &mut RaylibDrawHandle, window_width: i32, fps: f32) {
     d.draw_text(&format!("FPS {fps:.0}"), window_width - 130, 10, 22, Color::LIME);
+}
+
+pub fn draw_toast(d: &mut RaylibDrawHandle, window_width: i32, message: &str) {
+    let text_w = d.measure_text(message, 24);
+    let box_w = text_w + 40;
+    let x = window_width / 2 - box_w / 2;
+    d.draw_rectangle(x, 60, box_w, 44, Color::new(20, 20, 15, 220));
+    d.draw_rectangle_lines(x, 60, box_w, 44, Color::new(255, 215, 90, 255));
+    d.draw_text(message, x + 20, 72, 24, Color::new(255, 215, 90, 255));
 }
 
 pub fn draw_game_over(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {

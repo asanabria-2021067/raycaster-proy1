@@ -19,9 +19,9 @@ use maze::Maze;
 use player::Player;
 use raylib::prelude::*;
 use screens::GameState;
-use sprites::{Enemy, SpriteManager};
+use sprites::{Enemy, EnemyKind, SpriteManager};
 use textures::TextureManager;
-use weapon::{GunSprite, Weapon};
+use weapon::{GunSprite, Pickup, Weapon, WeaponKind};
 
 const WINDOW_WIDTH: i32 = 1300;
 const WINDOW_HEIGHT: i32 = 900;
@@ -31,6 +31,7 @@ const PLAYER_MAX_HEALTH: f32 = 100.0;
 const CONTACT_RADIUS: f32 = 28.0; // px, distancia enemigo-jugador para recibir dano
 const DAMAGE_PER_HIT: f32 = 15.0;
 const DAMAGE_COOLDOWN: f32 = 0.6; // seg entre golpes mientras el enemigo sigue en contacto
+const DAMAGE_FLASH_DURATION: f32 = 0.35; // seg que dura el destello rojo al recibir dano
 
 fn cell_center(cell: (usize, usize), block_size: i32) -> (f32, f32) {
     let bs = block_size as f32;
@@ -46,6 +47,7 @@ struct LevelState {
     origin_y: i32,
     player: Player,
     enemies: Vec<Enemy>,
+    pickups: Vec<Pickup>,
     health: f32,
     textures: TextureManager,
 }
@@ -72,11 +74,20 @@ impl LevelState {
 
         let player = Player::new(spawn, block_size);
         let goal_center = cell_center(goal, block_size);
-        let enemies = maze::find_all_char(&maze, 'e')
+        let chasers = maze::find_all_char(&maze, 'e').into_iter().map(|cell| (cell, EnemyKind::Chaser));
+        let shooters = maze::find_all_char(&maze, 'x').into_iter().map(|cell| (cell, EnemyKind::Shooter));
+        let enemies = chasers
+            .chain(shooters)
+            .map(|(cell, kind)| {
+                let (x, y) = cell_center(cell, block_size);
+                Enemy::new(x, y, kind)
+            })
+            .collect();
+        let pickups = maze::find_all_char(&maze, 'r')
             .into_iter()
             .map(|cell| {
                 let (x, y) = cell_center(cell, block_size);
-                Enemy { x, y }
+                Pickup { x, y, kind: WeaponKind::Rifle }
             })
             .collect();
         let textures = TextureManager::new(texture_dir);
@@ -90,6 +101,7 @@ impl LevelState {
             origin_y,
             player,
             enemies,
+            pickups,
             health: PLAYER_MAX_HEALTH,
             textures,
         })
@@ -125,9 +137,13 @@ fn main() {
     let mut mode_2d = false;
     let mut anim_frame = 0usize;
     let mut anim_timer = 0.0f32;
-    let mut weapon = Weapon::new();
+    let mut weapons = vec![Weapon::new(WeaponKind::Pistol)];
+    let mut active_weapon = 0usize;
     let mut step_timer = 0.0f32;
     let mut damage_cooldown = 0.0f32;
+    let mut damage_flash = 0.0f32;
+    let mut pickup_message: Option<String> = None;
+    let mut pickup_message_timer = 0.0f32;
 
     let mut show_fps = false;
     let mut fps_samples: Vec<f32> = Vec::new();
@@ -175,9 +191,13 @@ fn main() {
                             mode_2d = false;
                             anim_frame = 0;
                             anim_timer = 0.0;
-                            weapon = Weapon::new();
+                            weapons = vec![Weapon::new(WeaponKind::Pistol)];
+                            active_weapon = 0;
                             step_timer = 0.0;
                             damage_cooldown = 0.0;
+                            damage_flash = 0.0;
+                            pickup_message = None;
+                            pickup_message_timer = 0.0;
                             if let Some(bgm) = &audio_assets.bgm {
                                 bgm.play_stream();
                             }
@@ -198,8 +218,11 @@ fn main() {
                 lvl.player.mover(&lvl.maze, lvl.block_size, move_input.forward, move_input.strafe, sprint, dt);
                 lvl.player.a += input::read_mouse_rotation(&rl) + input::read_gamepad_rotation(&rl, dt);
                 anim_frame = sprites::advance_frame(anim_frame, &mut anim_timer, dt, sprite_manager.frame_count());
+                let mut ranged_damage = 0.0f32;
                 for enemy in lvl.enemies.iter_mut() {
-                    enemy.update_ai(&lvl.maze, lvl.block_size, lvl.player.pos_x, lvl.player.pos_y, dt);
+                    if let Some(dmg) = enemy.update_ai(&lvl.maze, lvl.block_size, lvl.player.pos_x, lvl.player.pos_y, dt) {
+                        ranged_damage += dmg;
+                    }
                 }
 
                 if let Some(bgm) = &audio_assets.bgm {
@@ -208,6 +231,14 @@ fn main() {
                 let is_moving = move_input.forward != 0.0 || move_input.strafe != 0.0;
                 audio::update_footsteps(&mut step_timer, dt, is_moving, audio_assets.step.as_ref());
 
+                if rl.is_key_pressed(KeyboardKey::KEY_ONE) {
+                    active_weapon = 0;
+                }
+                if rl.is_key_pressed(KeyboardKey::KEY_TWO) && weapons.len() > 1 {
+                    active_weapon = 1;
+                }
+
+                let weapon = &mut weapons[active_weapon];
                 weapon.update(dt);
                 let fire_pressed = rl.is_mouse_button_pressed(MouseButton::MOUSE_BUTTON_LEFT) || input::gamepad_fire_pressed(&rl);
                 if fire_pressed && weapon.try_fire() {
@@ -233,15 +264,37 @@ fn main() {
                     }
                 }
 
+                if let Some(kind) = weapon::try_collect_pickup(&mut lvl.pickups, lvl.player.pos_x, lvl.player.pos_y) {
+                    if !weapons.iter().any(|w| w.kind() == kind) {
+                        weapons.push(Weapon::new(kind));
+                        active_weapon = weapons.len() - 1;
+                        pickup_message = Some(format!("{} RECOGIDO", kind.label()));
+                        pickup_message_timer = 2.0;
+                    }
+                }
+                pickup_message_timer = (pickup_message_timer - dt).max(0.0);
+                if pickup_message_timer <= 0.0 {
+                    pickup_message = None;
+                }
+
+                damage_flash = (damage_flash - dt).max(0.0);
                 damage_cooldown = (damage_cooldown - dt).max(0.0);
                 let in_contact = lvl.enemies.iter().any(|enemy| {
                     let dx = enemy.x - lvl.player.pos_x;
                     let dy = enemy.y - lvl.player.pos_y;
                     (dx * dx + dy * dy).sqrt() < CONTACT_RADIUS
                 });
+                let mut total_damage = ranged_damage;
                 if in_contact && damage_cooldown <= 0.0 {
-                    lvl.health -= DAMAGE_PER_HIT;
+                    total_damage += DAMAGE_PER_HIT;
                     damage_cooldown = DAMAGE_COOLDOWN;
+                }
+                if total_damage > 0.0 {
+                    lvl.health -= total_damage;
+                    damage_flash = DAMAGE_FLASH_DURATION;
+                    if let Some(hurt) = &audio_assets.hurt {
+                        hurt.play();
+                    }
                 }
                 if lvl.health <= 0.0 {
                     if let Some(bgm) = &audio_assets.bgm {
@@ -264,13 +317,24 @@ fn main() {
                     if let Some(win) = &audio_assets.win {
                         win.play();
                     }
-                    state = GameState::Success;
+                    state = if selected_level == screens::LEVEL_COUNT - 1 {
+                        GameState::Credits
+                    } else {
+                        GameState::Success
+                    };
                 }
             }
             GameState::Success => {
                 if rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
                     level = None;
                     state = GameState::LevelSelect;
+                }
+            }
+            GameState::Credits => {
+                if rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
+                    level = None;
+                    selected_level = 0;
+                    state = GameState::Welcome;
                 }
             }
             GameState::GameOver => {
@@ -341,6 +405,17 @@ fn main() {
                         &sprite_manager,
                         anim_frame,
                     );
+                    weapon::render_pickups(
+                        &mut framebuffer,
+                        &lvl.pickups,
+                        lvl.player.pos_x,
+                        lvl.player.pos_y,
+                        lvl.player.a,
+                        lvl.player.fov,
+                        WINDOW_WIDTH,
+                        WINDOW_HEIGHT,
+                        &zbuffer,
+                    );
                     minimap::draw_minimap(
                         &mut framebuffer,
                         &lvl.maze,
@@ -350,7 +425,7 @@ fn main() {
                         lvl.block_size,
                         WINDOW_WIDTH,
                     );
-                    weapon::draw_gun(&mut framebuffer, &gun_sprite, &weapon, WINDOW_WIDTH, WINDOW_HEIGHT);
+                    weapon::draw_gun(&mut framebuffer, &gun_sprite, &weapons[active_weapon], WINDOW_WIDTH, WINDOW_HEIGHT);
                 }
                 framebuffer.swap(&mut texture);
             }
@@ -366,20 +441,31 @@ fn main() {
             }
             GameState::Playing => {
                 d.draw_texture(&texture, 0, 0, Color::WHITE);
+                if damage_flash > 0.0 {
+                    let alpha = (damage_flash / DAMAGE_FLASH_DURATION * 120.0) as u8;
+                    d.draw_rectangle(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, Color::new(255, 0, 0, alpha));
+                }
                 if let Some(lvl) = &level {
+                    let active = &weapons[active_weapon];
                     screens::draw_hud(
                         &mut d,
                         WINDOW_WIDTH,
                         WINDOW_HEIGHT,
                         lvl.health,
-                        weapon.ammo(),
-                        weapon::MAX_AMMO,
+                        active.ammo(),
+                        active.max_ammo(),
                         lvl.enemies.len(),
-                        weapon.is_reloading(),
+                        active.is_reloading(),
+                        active.kind().label(),
+                        weapons.len() > 1,
                     );
+                }
+                if let Some(msg) = &pickup_message {
+                    screens::draw_toast(&mut d, WINDOW_WIDTH, msg);
                 }
             }
             GameState::Success => screens::draw_success(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
+            GameState::Credits => screens::draw_credits(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
             GameState::GameOver => screens::draw_game_over(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
         }
 
