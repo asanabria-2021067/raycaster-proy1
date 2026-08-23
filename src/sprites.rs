@@ -76,6 +76,11 @@ impl SpriteManager {
         self.frames.len()
     }
 
+    // ancho/alto del PNG fuente; usarlo evita estirar sprites que no son cuadrados
+    pub fn aspect(&self) -> f32 {
+        self.width as f32 / self.height as f32
+    }
+
     fn sample(&self, frame: usize, tx: f32, ty: f32) -> Color {
         let x = (tx.clamp(0.0, 0.9999) * self.width as f32) as usize;
         let y = (ty.clamp(0.0, 0.9999) * self.height as f32) as usize;
@@ -191,22 +196,23 @@ pub fn render_sprites(
         }
 
         let corrected_dist = (dist * rel_angle.cos()).max(1.0);
-        let sprite_size = (block_size as f32 / corrected_dist) * dist_to_projection_plane;
+        let sprite_height = (block_size as f32 / corrected_dist) * dist_to_projection_plane;
+        let sprite_width = sprite_height * sprites.aspect();
         let screen_x = window_width as f32 / 2.0 + rel_angle.tan() * dist_to_projection_plane;
 
-        let x0 = (screen_x - sprite_size / 2.0).max(0.0) as i32;
-        let x1 = (screen_x + sprite_size / 2.0).min(window_width as f32) as i32;
+        let x0 = (screen_x - sprite_width / 2.0).max(0.0) as i32;
+        let x1 = (screen_x + sprite_width / 2.0).min(window_width as f32) as i32;
         let center_y = window_height as f32 / 2.0;
-        let y0 = (center_y - sprite_size / 2.0).max(0.0) as i32;
-        let y1 = (center_y + sprite_size / 2.0).min(window_height as f32) as i32;
+        let y0 = (center_y - sprite_height / 2.0).max(0.0) as i32;
+        let y1 = (center_y + sprite_height / 2.0).min(window_height as f32) as i32;
 
         for x in x0..x1 {
             if x < 0 || x as usize >= zbuffer.len() || corrected_dist >= zbuffer[x as usize] {
                 continue;
             }
-            let tx = (x - x0) as f32 / sprite_size.max(1.0);
+            let tx = (x - x0) as f32 / sprite_width.max(1.0);
             for y in y0..y1 {
-                let ty = (y as f32 - (center_y - sprite_size / 2.0)) / sprite_size.max(1.0);
+                let ty = (y as f32 - (center_y - sprite_height / 2.0)) / sprite_height.max(1.0);
                 let color = sprites.sample(frame, tx, ty);
                 if color.a < ALPHA_THRESHOLD {
                     continue;

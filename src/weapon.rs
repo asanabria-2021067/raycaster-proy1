@@ -15,7 +15,7 @@ const GUN_PATHS: [&str; 3] = [
 
 const FIRE_DURATION: f32 = 0.2; // duracion total de la animacion de disparo/retroceso
 const HIT_RADIUS: f32 = 20.0; // radio de colision angular del enemigo, en px de mundo
-const GUN_SCALE: f32 = 0.6; // porcion del ancho de ventana que ocupa el arma
+const GUN_SCALE: f32 = 0.45; // porcion del ancho de ventana que ocupa el arma
 const ALPHA_THRESHOLD: u8 = 20;
 const SILHOUETTE_COLOR: Color = Color::new(90, 90, 90, 255);
 pub const MAX_AMMO: i32 = 12;
@@ -61,6 +61,11 @@ impl GunSprite {
         let x = (tx.clamp(0.0, 0.9999) * self.width as f32) as usize;
         let y = (ty.clamp(0.0, 0.9999) * self.height as f32) as usize;
         self.frames[frame][y * self.width as usize + x]
+    }
+
+    // ancho/alto del PNG fuente; usarlo evita estirar el arma si no es cuadrada
+    pub fn aspect(&self) -> f32 {
+        self.width as f32 / self.height as f32
     }
 }
 
@@ -184,7 +189,7 @@ pub fn draw_gun(fb: &mut Framebuffer, gun: &GunSprite, weapon: &Weapon, window_w
     }
     let frame = weapon.frame_index();
     let sprite_w = window_width as f32 * GUN_SCALE;
-    let sprite_h = sprite_w;
+    let sprite_h = sprite_w / gun.aspect();
     let x0 = ((window_width as f32 - sprite_w) / 2.0) as i32;
     let y0 = (window_height as f32 - sprite_h) as i32;
 
