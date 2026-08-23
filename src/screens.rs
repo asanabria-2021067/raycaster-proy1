@@ -31,18 +31,63 @@ pub fn level_texture_dir(index: usize) -> &'static str {
     LEVEL_TEXTURE_DIRS[index]
 }
 
+fn count_enemies(index: usize) -> usize {
+    crate::maze::load_maze(&level_path(index))
+        .map(|maze| maze.iter().flatten().filter(|&&c| c == 'e' || c == 'x').count())
+        .unwrap_or(0)
+}
+
+// silueta vectorial simple (skyline + soldado + mira), no depende de ningun asset
+fn draw_illustration(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
+    let silhouette = Color::new(30, 30, 42, 255);
+    let horizon_y = window_height / 2 - 180;
+    d.draw_rectangle(0, horizon_y, window_width, 2, Color::new(60, 60, 80, 255));
+
+    let widths = [60, 90, 50, 120, 70, 100, 55, 80, 65];
+    let mut x = 30;
+    for (i, w) in widths.iter().enumerate() {
+        let h = 40 + (i as i32 * 37) % 140;
+        d.draw_rectangle(x, horizon_y - h, *w, h, silhouette);
+        x += w + 14;
+    }
+
+    // mira detras del titulo
+    let cx = window_width / 2;
+    let cy = window_height / 2 - 110;
+    let crosshair = Color::new(255, 195, 40, 70);
+    d.draw_circle_lines(cx, cy, 70.0, crosshair);
+    d.draw_circle_lines(cx, cy, 46.0, crosshair);
+    d.draw_line(cx - 95, cy, cx - 50, cy, crosshair);
+    d.draw_line(cx + 50, cy, cx + 95, cy, crosshair);
+    d.draw_line(cx, cy - 95, cx, cy - 50, crosshair);
+    d.draw_line(cx, cy + 50, cx, cy + 95, crosshair);
+
+    // soldado simple parado sobre el horizonte
+    let sx = window_width / 2 + 300;
+    let sy = horizon_y;
+    d.draw_rectangle(sx - 14, sy - 70, 28, 50, silhouette);
+    d.draw_circle(sx, sy - 82, 14.0, silhouette);
+    d.draw_rectangle(sx + 10, sy - 60, 42, 8, silhouette);
+    d.draw_rectangle(sx - 10, sy - 20, 10, 30, silhouette);
+    d.draw_rectangle(sx + 2, sy - 20, 10, 30, silhouette);
+}
+
 pub fn draw_welcome(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
     d.clear_background(BG_MENU);
+    draw_illustration(d, window_width, window_height);
     d.draw_text("RAY CASTER", window_width / 2 - 190, window_height / 2 - 110, 60, Color::GOLD);
     d.draw_text(
-        "WASD mover  |  shift correr  |  mouse rotar  |  click disparar  |  R recargar  |  M alterna 2D/3D",
-        window_width / 2 - 460,
+        "WASD mover | shift correr | mouse rotar | click disparar | R recargar | 1/2 cambiar arma | M alterna 2D/3D",
+        window_width / 2 - 490,
         window_height / 2,
-        20,
+        18,
         Color::WHITE,
     );
     d.draw_text("ENTER para continuar", window_width / 2 - 140, window_height / 2 + 60, 26, Color::SKYBLUE);
 }
+
+const LEVEL_ACCENT_COLORS: [Color; 3] =
+    [Color::new(220, 90, 60, 255), Color::new(80, 180, 220, 255), Color::new(210, 180, 60, 255)];
 
 pub fn draw_level_select(
     d: &mut RaylibDrawHandle,
@@ -52,24 +97,46 @@ pub fn draw_level_select(
     error: Option<&str>,
 ) {
     d.clear_background(BG_MENU);
-    d.draw_text("SELECCIONA NIVEL", window_width / 2 - 230, window_height / 2 - 160, 44, Color::GOLD);
+    d.draw_text("SELECCIONA NIVEL", window_width / 2 - 230, window_height / 2 - 220, 44, Color::GOLD);
+
+    let box_w = 460;
+    let box_h = 84;
+    let box_x = window_width / 2 - box_w / 2;
 
     for i in 0..LEVEL_COUNT {
-        let y = window_height / 2 - 40 + i as i32 * 50;
+        let y = window_height / 2 - 120 + i as i32 * 104;
         let available = level_exists(i);
-        let color = if !available {
+        let selected_i = i == selected;
+        let accent = LEVEL_ACCENT_COLORS[i % LEVEL_ACCENT_COLORS.len()];
+        let border = if !available {
             Color::DARKGRAY
-        } else if i == selected {
+        } else if selected_i {
+            accent
+        } else {
+            Color::new(60, 60, 72, 255)
+        };
+
+        d.draw_rectangle(box_x, y, box_w, box_h, Color::new(18, 18, 26, 235));
+        d.draw_rectangle_lines(box_x, y, box_w, box_h, border);
+        if selected_i {
+            d.draw_rectangle_lines(box_x - 2, y - 2, box_w + 4, box_h + 4, border);
+            d.draw_text(">", box_x - 34, y + 26, 34, accent);
+        }
+
+        let title_color = if !available {
+            Color::DARKGRAY
+        } else if selected_i {
             Color::GOLD
         } else {
             Color::WHITE
         };
-        let label = if available {
-            format!("Nivel {}", i + 1)
+        d.draw_text(&format!("NIVEL {}", i + 1), box_x + 22, y + 14, 30, title_color);
+
+        if available {
+            d.draw_text(&format!("{} enemigos", count_enemies(i)), box_x + 22, y + 52, 18, Color::LIGHTGRAY);
         } else {
-            format!("Nivel {} (no disponible)", i + 1)
-        };
-        d.draw_text(&label, window_width / 2 - 140, y, 30, color);
+            d.draw_text("no disponible", box_x + 22, y + 52, 18, Color::DARKGRAY);
+        }
     }
 
     d.draw_text(
