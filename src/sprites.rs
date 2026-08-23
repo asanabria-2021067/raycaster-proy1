@@ -207,7 +207,12 @@ pub fn render_sprites(
         let y1 = (center_y + sprite_height / 2.0).min(window_height as f32) as i32;
 
         for x in x0..x1 {
-            if x < 0 || x as usize >= zbuffer.len() || corrected_dist >= zbuffer[x as usize] {
+            if x < 0 || x >= window_width || zbuffer.is_empty() {
+                continue;
+            }
+            // zbuffer trae un valor por columna de rayo, no por pixel; hay que mapear
+            let ray_index = (x as usize * zbuffer.len()) / window_width as usize;
+            if corrected_dist >= zbuffer[ray_index] {
                 continue;
             }
             let tx = (x - x0) as f32 / sprite_width.max(1.0);
