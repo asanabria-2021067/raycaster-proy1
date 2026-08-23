@@ -115,8 +115,28 @@ fn main() {
     let mut step_timer = 0.0f32;
     let mut damage_cooldown = 0.0f32;
 
+    let mut show_fps = false;
+    let mut fps_samples: Vec<f32> = Vec::new();
+    let mut fps_report_timer = 0.0f32;
+
     while !rl.window_should_close() {
         let dt = rl.get_frame_time();
+
+        if rl.is_key_pressed(KeyboardKey::KEY_F3) {
+            show_fps = !show_fps;
+        }
+        let current_fps = 1.0 / dt.max(1e-6);
+        if dt > 0.0 {
+            fps_samples.push(current_fps);
+        }
+        fps_report_timer += dt;
+        if fps_report_timer >= 5.0 {
+            let avg = fps_samples.iter().sum::<f32>() / fps_samples.len() as f32;
+            let min = fps_samples.iter().cloned().fold(f32::INFINITY, f32::min);
+            println!("FPS ultimos 5s -> promedio: {avg:.1}, minimo: {min:.1}");
+            fps_samples.clear();
+            fps_report_timer = 0.0;
+        }
 
         match state {
             GameState::Welcome => {
@@ -342,6 +362,10 @@ fn main() {
             }
             GameState::Success => screens::draw_success(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
             GameState::GameOver => screens::draw_game_over(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
+        }
+
+        if show_fps {
+            screens::draw_fps(&mut d, WINDOW_WIDTH, current_fps);
         }
     }
 }

@@ -123,6 +123,10 @@ pub fn draw_hud(
     }
 }
 
+pub fn draw_fps(d: &mut RaylibDrawHandle, window_width: i32, fps: f32) {
+    d.draw_text(&format!("FPS {fps:.0}"), window_width - 130, 10, 22, Color::LIME);
+}
+
 pub fn draw_game_over(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
     d.clear_background(BG_GAME_OVER);
     d.draw_text("HAS MUERTO", window_width / 2 - 210, window_height / 2 - 60, 50, Color::RED);
