@@ -213,8 +213,10 @@ fn main() {
                 if rl.is_key_pressed(KeyboardKey::KEY_M) {
                     mode_2d = !mode_2d;
                 }
-                if rl.is_key_pressed(KeyboardKey::KEY_R) {
-                    weapon.try_reload();
+                if rl.is_key_pressed(KeyboardKey::KEY_R) && weapon.try_reload() {
+                    if let Some(reload) = &audio_assets.reload {
+                        reload.play();
+                    }
                 }
 
                 damage_cooldown = (damage_cooldown - dt).max(0.0);

@@ -8,6 +8,7 @@ pub struct AudioAssets<'aud> {
     pub step: Option<Sound<'aud>>,
     pub win: Option<Sound<'aud>>,
     pub lose: Option<Sound<'aud>>,
+    pub reload: Option<Sound<'aud>>,
 }
 
 impl<'aud> AudioAssets<'aud> {
@@ -32,7 +33,11 @@ impl<'aud> AudioAssets<'aud> {
             .new_sound(&crate::paths::resolve("assets/audio/lose.wav"))
             .map_err(|e| eprintln!("advertencia: no se pudo cargar lose.wav: {e}, sin sonido de derrota"))
             .ok();
-        Self { bgm, shoot, step, win, lose }
+        let reload = audio
+            .new_sound(&crate::paths::resolve("assets/audio/reload.wav"))
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar reload.wav: {e}, sin sonido de recarga"))
+            .ok();
+        Self { bgm, shoot, step, win, lose, reload }
     }
 }
 
