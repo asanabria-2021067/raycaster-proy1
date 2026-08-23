@@ -96,9 +96,14 @@ pub fn draw_success(d: &mut RaylibDrawHandle, window_width: i32, window_height: 
     );
 }
 
+const HUD_PANEL_HEIGHT: i32 = 74;
+const HUD_LIVES: i32 = 10; // segmentos de la barra de vida, estilo pips de arcade
+const HUD_BORDER: Color = Color::new(255, 195, 40, 255);
+
 #[allow(clippy::too_many_arguments)]
 pub fn draw_hud(
     d: &mut RaylibDrawHandle,
+    window_width: i32,
     window_height: i32,
     health: f32,
     ammo: i32,
@@ -106,27 +111,53 @@ pub fn draw_hud(
     enemies_left: usize,
     reloading: bool,
 ) {
-    let y = window_height - 40;
-    let health_color = if health > 50.0 {
-        Color::LIME
-    } else if health > 20.0 {
-        Color::GOLD
-    } else {
-        Color::RED
-    };
-    d.draw_text(&format!("VIDA {}", health.max(0.0) as i32), 20, y, 24, health_color);
+    let panel_y = window_height - HUD_PANEL_HEIGHT;
+    d.draw_rectangle(0, panel_y, window_width, HUD_PANEL_HEIGHT, Color::new(8, 8, 12, 215));
+    d.draw_line(0, panel_y, window_width, panel_y, HUD_BORDER);
 
-    let ammo_text = if reloading { "MUN --/--".to_string() } else { format!("MUN {ammo}/{max_ammo}") };
-    let ammo_color = if !reloading && ammo == 0 { Color::RED } else { Color::WHITE };
-    d.draw_text(&ammo_text, 220, y, 24, ammo_color);
+    let health_color =
+        if health > 50.0 { Color::LIME } else if health > 20.0 { Color::GOLD } else { Color::RED };
 
-    d.draw_text(&format!("ENEMIGOS {enemies_left}"), 420, y, 24, Color::LIGHTGRAY);
-
-    if reloading {
-        d.draw_text("recargando...", 220, y - 26, 18, Color::GOLD);
-    } else if ammo == 0 {
-        d.draw_text("R para recargar", 220, y - 26, 18, Color::RED);
+    // panel de vida: pips estilo arcade, uno se apaga cada 100/HUD_LIVES % de vida perdida
+    let label_x = 18;
+    let label_y = panel_y + 10;
+    d.draw_text("VIDA", label_x, label_y, 20, HUD_BORDER);
+    let bar_x = label_x + 62;
+    let bar_y = label_y + 1;
+    let seg_w = 16;
+    let seg_h = 20;
+    let seg_gap = 3;
+    let filled = ((health.clamp(0.0, 100.0) / 100.0) * HUD_LIVES as f32).ceil() as i32;
+    for i in 0..HUD_LIVES {
+        let sx = bar_x + i * (seg_w + seg_gap);
+        let fill_color = if i < filled { health_color } else { Color::new(35, 35, 35, 255) };
+        d.draw_rectangle(sx, bar_y, seg_w, seg_h, fill_color);
+        d.draw_rectangle_lines(sx, bar_y, seg_w, seg_h, Color::BLACK);
     }
+    d.draw_text(&format!("{}", health.max(0.0) as i32), bar_x + HUD_LIVES * (seg_w + seg_gap) + 8, label_y, 20, Color::WHITE);
+
+    // panel de municion: una bala por tiro disponible, estilo cargador visible
+    let ammo_x = window_width / 2 - 110;
+    d.draw_text("MUN", ammo_x, label_y, 20, Color::SKYBLUE);
+    let bullets_x = ammo_x + 55;
+    for i in 0..max_ammo {
+        let bx = bullets_x + i * 11;
+        let lit = !reloading && i < ammo;
+        let color = if lit { Color::YELLOW } else { Color::new(45, 45, 45, 255) };
+        d.draw_rectangle(bx, bar_y + 2, 7, seg_h - 4, color);
+    }
+    if reloading {
+        d.draw_text("RECARGANDO", ammo_x, bar_y + seg_h + 4, 16, Color::GOLD);
+    } else if ammo == 0 {
+        d.draw_text("[R] RECARGAR", ammo_x, bar_y + seg_h + 4, 16, Color::RED);
+    }
+
+    // contador de enemigos, alineado a la derecha
+    let enemies_text = format!("ENEMIGOS {enemies_left}");
+    let text_w = d.measure_text(&enemies_text, 22);
+    let enemies_x = window_width - text_w - 34;
+    d.draw_circle(enemies_x - 14, label_y + 12, 7.0, Color::RED);
+    d.draw_text(&enemies_text, enemies_x, label_y, 22, Color::LIGHTGRAY);
 }
 
 pub fn draw_fps(d: &mut RaylibDrawHandle, window_width: i32, fps: f32) {

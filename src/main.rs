@@ -369,6 +369,7 @@ fn main() {
                 if let Some(lvl) = &level {
                     screens::draw_hud(
                         &mut d,
+                        WINDOW_WIDTH,
                         WINDOW_HEIGHT,
                         lvl.health,
                         weapon.ammo(),
