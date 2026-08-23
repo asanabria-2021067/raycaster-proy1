@@ -90,6 +90,7 @@ fn main() {
         .build();
 
     rl.disable_cursor();
+    rl.set_target_fps(60);
 
     let rl_audio = RaylibAudio::init_audio_device().expect("no se pudo inicializar el audio");
     let audio_assets = AudioAssets::new(&rl_audio);
