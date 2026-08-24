@@ -179,11 +179,17 @@ fn main() {
         match state {
             GameState::Welcome => {
                 if rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
+                    if let Some(s) = &audio_assets.ui_select {
+                        s.play();
+                    }
                     state = GameState::Instructions;
                 }
             }
             GameState::Instructions => {
                 if rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
+                    if let Some(s) = &audio_assets.ui_select {
+                        s.play();
+                    }
                     state = GameState::LevelSelect;
                 }
             }
@@ -327,14 +333,12 @@ fn main() {
                     if let Some(bgm) = &audio_assets.bgm {
                         bgm.stop_stream();
                     }
-                    if let Some(win) = &audio_assets.win {
-                        win.play();
+                    let is_last_level = selected_level == screens::LEVEL_COUNT - 1;
+                    let victory_sound = if is_last_level { &audio_assets.victory } else { &audio_assets.win };
+                    if let Some(sound) = victory_sound {
+                        sound.play();
                     }
-                    state = if selected_level == screens::LEVEL_COUNT - 1 {
-                        GameState::Credits
-                    } else {
-                        GameState::Success
-                    };
+                    state = if is_last_level { GameState::Credits } else { GameState::Success };
                 }
             }
             GameState::Success => {

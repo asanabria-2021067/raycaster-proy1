@@ -14,6 +14,8 @@ pub struct AudioAssets<'aud> {
     pub lose: Option<Sound<'aud>>,
     pub reload: Option<Sound<'aud>>,
     pub hurt: Option<Sound<'aud>>,
+    pub ui_select: Option<Sound<'aud>>,
+    pub victory: Option<Sound<'aud>>,
 }
 
 impl<'aud> AudioAssets<'aud> {
@@ -54,7 +56,15 @@ impl<'aud> AudioAssets<'aud> {
             .new_sound(&crate::paths::resolve("assets/audio/hurt.wav"))
             .map_err(|e| eprintln!("advertencia: no se pudo cargar hurt.wav: {e}, sin sonido de dano"))
             .ok();
-        Self { bgm, shoot_pistol, shoot_rifle, shoot_shotgun, step, win, lose, reload, hurt }
+        let ui_select = audio
+            .new_sound(&crate::paths::resolve("assets/audio/ui_select.wav"))
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar ui_select.wav: {e}, sin sonido de menu"))
+            .ok();
+        let victory = audio
+            .new_sound(&crate::paths::resolve("assets/audio/victory.wav"))
+            .map_err(|e| eprintln!("advertencia: no se pudo cargar victory.wav: {e}, sin sonido de creditos"))
+            .ok();
+        Self { bgm, shoot_pistol, shoot_rifle, shoot_shotgun, step, win, lose, reload, hurt, ui_select, victory }
     }
 
     pub fn shoot_sound(&self, kind: WeaponKind) -> Option<&Sound<'_>> {
