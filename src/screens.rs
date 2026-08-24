@@ -12,6 +12,7 @@ const BG_GAME_OVER: Color = Color::new(30, 10, 10, 255);
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum GameState {
     Welcome,
+    Instructions,
     LevelSelect,
     Playing,
     Success,
@@ -72,8 +73,12 @@ fn draw_illustration(d: &mut RaylibDrawHandle, window_width: i32, window_height:
     d.draw_rectangle(sx + 2, sy - 20, 10, 30, silhouette);
 }
 
-pub fn draw_welcome(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
+pub fn draw_welcome(d: &mut RaylibDrawHandle, art: &Option<Texture2D>, window_width: i32, window_height: i32) {
     d.clear_background(BG_MENU);
+    if crate::menu_art::draw_fullscreen(d, art, window_width, window_height) {
+        d.draw_text("ENTER para continuar", window_width / 2 - 140, window_height - 60, 26, Color::GOLD);
+        return;
+    }
     draw_illustration(d, window_width, window_height);
     d.draw_text("RAY CASTER", window_width / 2 - 190, window_height / 2 - 110, 60, Color::GOLD);
     d.draw_text(
@@ -86,18 +91,45 @@ pub fn draw_welcome(d: &mut RaylibDrawHandle, window_width: i32, window_height: 
     d.draw_text("ENTER para continuar", window_width / 2 - 140, window_height / 2 + 60, 26, Color::SKYBLUE);
 }
 
+pub fn draw_instructions(d: &mut RaylibDrawHandle, art: &Option<Texture2D>, window_width: i32, window_height: i32) {
+    d.clear_background(BG_MENU);
+    if crate::menu_art::draw_fullscreen(d, art, window_width, window_height) {
+        return;
+    }
+    d.draw_text("CONTROLES", window_width / 2 - 150, window_height / 2 - 200, 44, Color::GOLD);
+    d.draw_text(
+        "WASD mover | shift correr | mouse rotar | click disparar",
+        window_width / 2 - 300,
+        window_height / 2 - 40,
+        22,
+        Color::WHITE,
+    );
+    d.draw_text(
+        "R recargar | 1/2/3 cambiar arma | M alterna 2D/3D",
+        window_width / 2 - 300,
+        window_height / 2 - 5,
+        22,
+        Color::WHITE,
+    );
+    d.draw_text("ENTER para continuar", window_width / 2 - 140, window_height / 2 + 100, 26, Color::SKYBLUE);
+}
+
 const LEVEL_ACCENT_COLORS: [Color; 3] =
     [Color::new(220, 90, 60, 255), Color::new(80, 180, 220, 255), Color::new(210, 180, 60, 255)];
 
 pub fn draw_level_select(
     d: &mut RaylibDrawHandle,
+    art: &Option<Texture2D>,
     window_width: i32,
     window_height: i32,
     selected: usize,
     error: Option<&str>,
 ) {
     d.clear_background(BG_MENU);
-    d.draw_text("SELECCIONA NIVEL", window_width / 2 - 230, window_height / 2 - 220, 44, Color::GOLD);
+    let has_art = crate::menu_art::draw_fullscreen(d, art, window_width, window_height);
+    if !has_art {
+        d.draw_text("SELECCIONA NIVEL", window_width / 2 - 230, window_height / 2 - 220, 44, Color::GOLD);
+    }
 
     let box_w = 460;
     let box_h = 84;
@@ -164,8 +196,12 @@ pub fn draw_success(d: &mut RaylibDrawHandle, window_width: i32, window_height: 
     );
 }
 
-pub fn draw_credits(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
+pub fn draw_credits(d: &mut RaylibDrawHandle, art: &Option<Texture2D>, window_width: i32, window_height: i32) {
     d.clear_background(BG_SUCCESS);
+    if crate::menu_art::draw_fullscreen(d, art, window_width, window_height) {
+        d.draw_text("ENTER para volver al inicio", window_width / 2 - 190, window_height - 60, 22, Color::GOLD);
+        return;
+    }
     d.draw_text("JUEGO TERMINADO", window_width / 2 - 300, window_height / 2 - 180, 50, Color::GOLD);
     let lines = [
         "Gracias por jugar RAY CASTER",
@@ -269,8 +305,18 @@ pub fn draw_toast(d: &mut RaylibDrawHandle, window_width: i32, message: &str) {
     d.draw_text(message, x + 20, 72, 24, Color::new(255, 215, 90, 255));
 }
 
-pub fn draw_game_over(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
+pub fn draw_game_over(d: &mut RaylibDrawHandle, art: &Option<Texture2D>, window_width: i32, window_height: i32) {
     d.clear_background(BG_GAME_OVER);
+    if crate::menu_art::draw_fullscreen(d, art, window_width, window_height) {
+        d.draw_text(
+            "ENTER para volver a seleccion de nivel",
+            window_width / 2 - 260,
+            window_height - 60,
+            22,
+            Color::GOLD,
+        );
+        return;
+    }
     d.draw_text("HAS MUERTO", window_width / 2 - 210, window_height / 2 - 60, 50, Color::RED);
     d.draw_text(
         "ENTER para volver a seleccion de nivel",

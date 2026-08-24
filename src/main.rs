@@ -3,6 +3,7 @@ mod caster;
 mod framebuffer;
 mod input;
 mod maze;
+mod menu_art;
 mod minimap;
 mod paths;
 mod player;
@@ -16,6 +17,7 @@ mod weapon;
 use audio::AudioAssets;
 use framebuffer::Framebuffer;
 use maze::Maze;
+use menu_art::MenuArt;
 use player::Player;
 use raylib::prelude::*;
 use screens::GameState;
@@ -132,6 +134,7 @@ fn main() {
 
     let sprite_manager = SpriteManager::new();
     let gun_sprite = GunSprite::new();
+    let menu_art = MenuArt::new(&mut rl, &thread);
 
     let mut state = GameState::Welcome;
     let mut selected_level = 0usize;
@@ -174,6 +177,11 @@ fn main() {
 
         match state {
             GameState::Welcome => {
+                if rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
+                    state = GameState::Instructions;
+                }
+            }
+            GameState::Instructions => {
                 if rl.is_key_pressed(KeyboardKey::KEY_ENTER) {
                     state = GameState::LevelSelect;
                 }
@@ -439,10 +447,18 @@ fn main() {
         d.clear_background(Color::BLACK);
 
         match state {
-            GameState::Welcome => screens::draw_welcome(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
-            GameState::LevelSelect => {
-                screens::draw_level_select(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT, selected_level, level_error.as_deref())
+            GameState::Welcome => screens::draw_welcome(&mut d, &menu_art.principal, WINDOW_WIDTH, WINDOW_HEIGHT),
+            GameState::Instructions => {
+                screens::draw_instructions(&mut d, &menu_art.instrucciones, WINDOW_WIDTH, WINDOW_HEIGHT)
             }
+            GameState::LevelSelect => screens::draw_level_select(
+                &mut d,
+                &menu_art.niveles,
+                WINDOW_WIDTH,
+                WINDOW_HEIGHT,
+                selected_level,
+                level_error.as_deref(),
+            ),
             GameState::Playing => {
                 d.draw_texture(&texture, 0, 0, Color::WHITE);
                 if damage_flash > 0.0 {
@@ -468,8 +484,8 @@ fn main() {
                 }
             }
             GameState::Success => screens::draw_success(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
-            GameState::Credits => screens::draw_credits(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
-            GameState::GameOver => screens::draw_game_over(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
+            GameState::Credits => screens::draw_credits(&mut d, &menu_art.creditos, WINDOW_WIDTH, WINDOW_HEIGHT),
+            GameState::GameOver => screens::draw_game_over(&mut d, &menu_art.game_over, WINDOW_WIDTH, WINDOW_HEIGHT),
         }
 
         if show_fps {
