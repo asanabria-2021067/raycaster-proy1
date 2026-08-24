@@ -95,9 +95,38 @@ fn fill_circle(buf: &mut [Color], w: i32, h: i32, cx: i32, cy: i32, r: i32, colo
 // destello de disparo: tres circulos superpuestos, simula una explosion irregular
 fn muzzle_flash(buf: &mut [Color], w: i32, h: i32, tip_x: i32, tip_y: i32, size: i32) {
     let flash = Color::new(255, 225, 110, 255);
+    let core = Color::new(255, 250, 220, 255);
     fill_circle(buf, w, h, tip_x, tip_y, size, flash);
     fill_circle(buf, w, h, tip_x + size / 2, tip_y - size / 2, size / 2, flash);
     fill_circle(buf, w, h, tip_x + size / 2, tip_y + size / 2, size / 2, flash);
+    fill_circle(buf, w, h, tip_x, tip_y, (size / 2).max(2), core);
+}
+
+fn shift(c: Color, amount: i32) -> Color {
+    let clamp = |v: u8| (v as i32 + amount).clamp(0, 255) as u8;
+    Color::new(clamp(c.r), clamp(c.g), clamp(c.b), c.a)
+}
+
+// rectangulo con borde superior claro e inferior oscuro, simula volumen sin arte real
+fn beveled_rect(buf: &mut [Color], w: i32, h: i32, x: i32, y: i32, rw: i32, rh: i32, color: Color) {
+    fill_rect(buf, w, h, x, y, rw, rh, color);
+    fill_rect(buf, w, h, x, y, rw, 2.min(rh), shift(color, 35));
+    if rh > 2 {
+        fill_rect(buf, w, h, x, y + rh - 2, rw, 2, shift(color, -35));
+    }
+}
+
+// contorno rectangular hueco (guardamonte real, no un bloque solido)
+#[allow(clippy::too_many_arguments)]
+fn rect_outline(buf: &mut [Color], w: i32, h: i32, x: i32, y: i32, rw: i32, rh: i32, thick: i32, color: Color) {
+    fill_rect(buf, w, h, x, y, rw, thick, color);
+    fill_rect(buf, w, h, x, y + rh - thick, rw, thick, color);
+    fill_rect(buf, w, h, x, y, thick, rh, color);
+    fill_rect(buf, w, h, x + rw - thick, y, thick, rh, color);
+}
+
+fn rivet(buf: &mut [Color], w: i32, h: i32, x: i32, y: i32) {
+    fill_circle(buf, w, h, x, y, 2, Color::new(25, 25, 28, 255));
 }
 
 // stage: 0 = reposo, 1 = disparo (destello grande), 2 = disparo (destello chico, retrocediendo)
@@ -109,10 +138,12 @@ fn build_pistol(stage: usize) -> (i32, i32, Vec<Color>) {
     let highlight = Color::new(205, 205, 210, 255);
     let kick = if stage == 0 { 0 } else { 6 - stage as i32 * 2 };
 
-    fill_rect(&mut buf, w, h, 38, 38 - kick, 26, 40, dark); // empuñadura
-    fill_rect(&mut buf, w, h, 22, 14 - kick, 58, 20, metal); // corredera
+    beveled_rect(&mut buf, w, h, 38, 38 - kick, 26, 40, dark); // empuñadura
+    beveled_rect(&mut buf, w, h, 22, 14 - kick, 58, 20, metal); // corredera
     fill_rect(&mut buf, w, h, 70, 6 - kick, 8, 10, highlight); // mira
-    fill_rect(&mut buf, w, h, 44, 50 - kick, 16, 10, dark); // guardamonte
+    rect_outline(&mut buf, w, h, 44, 50 - kick, 16, 12, 2, dark); // guardamonte
+    rivet(&mut buf, w, h, 34, 24 - kick);
+    rivet(&mut buf, w, h, 62, 24 - kick);
 
     if stage > 0 {
         muzzle_flash(&mut buf, w, h, 82, 20 - kick, if stage == 1 { 14 } else { 8 });
@@ -129,12 +160,14 @@ fn build_rifle(stage: usize) -> (i32, i32, Vec<Color>) {
     let accent = Color::new(120, 172, 222, 255);
     let kick = if stage == 0 { 0 } else { 5 - stage as i32 * 2 };
 
-    fill_rect(&mut buf, w, h, 0, 34 - kick, 42, 24, wood); // culata
-    fill_rect(&mut buf, w, h, 36, 22 - kick, 78, 28, olive); // cuerpo/receptor
-    fill_rect(&mut buf, w, h, 60, 48 - kick, 16, 26, dark); // cargador
-    fill_rect(&mut buf, w, h, 44, 48 - kick, 14, 22, dark); // empuñadura
-    fill_rect(&mut buf, w, h, 108, 30 - kick, 74, 10, dark); // cañon
+    beveled_rect(&mut buf, w, h, 0, 34 - kick, 42, 24, wood); // culata
+    beveled_rect(&mut buf, w, h, 36, 22 - kick, 78, 28, olive); // cuerpo/receptor
+    beveled_rect(&mut buf, w, h, 60, 48 - kick, 16, 26, dark); // cargador
+    rect_outline(&mut buf, w, h, 44, 48 - kick, 14, 22, 2, dark); // empuñadura
+    beveled_rect(&mut buf, w, h, 108, 30 - kick, 74, 10, dark); // cañon
     fill_rect(&mut buf, w, h, 76, 10 - kick, 10, 12, accent); // mira/riel
+    rivet(&mut buf, w, h, 46, 34 - kick);
+    rivet(&mut buf, w, h, 100, 34 - kick);
 
     if stage > 0 {
         muzzle_flash(&mut buf, w, h, 178, 35 - kick, if stage == 1 { 13 } else { 7 });
@@ -151,12 +184,14 @@ fn build_shotgun(stage: usize) -> (i32, i32, Vec<Color>) {
     let accent = Color::new(228, 122, 42, 255);
     let kick = if stage == 0 { 0 } else { 7 - stage as i32 * 3 };
 
-    fill_rect(&mut buf, w, h, 0, 42 - kick, 48, 28, wood); // culata
-    fill_rect(&mut buf, w, h, 42, 30 - kick, 42, 36, metal); // receptor
-    fill_rect(&mut buf, w, h, 78, 46 - kick, 38, 18, dark_wood); // guardamano
-    fill_rect(&mut buf, w, h, 80, 26 - kick, 82, 9, metal); // cañon superior
-    fill_rect(&mut buf, w, h, 80, 38 - kick, 82, 9, metal); // cañon inferior
+    beveled_rect(&mut buf, w, h, 0, 42 - kick, 48, 28, wood); // culata
+    beveled_rect(&mut buf, w, h, 42, 30 - kick, 42, 36, metal); // receptor
+    beveled_rect(&mut buf, w, h, 78, 46 - kick, 38, 18, dark_wood); // guardamano
+    beveled_rect(&mut buf, w, h, 80, 26 - kick, 82, 9, metal); // cañon superior
+    beveled_rect(&mut buf, w, h, 80, 38 - kick, 82, 9, metal); // cañon inferior
     fill_rect(&mut buf, w, h, 44, 30 - kick, 34, 6, accent); // banda de color
+    rivet(&mut buf, w, h, 52, 40 - kick);
+    rivet(&mut buf, w, h, 68, 40 - kick);
 
     if stage > 0 {
         muzzle_flash(&mut buf, w, h, 158, 34 - kick, if stage == 1 { 18 } else { 10 });
