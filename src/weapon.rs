@@ -7,16 +7,9 @@ use crate::framebuffer::Framebuffer;
 use crate::maze::Maze;
 use crate::sprites::Enemy;
 
-const GUN_PATHS: [&str; 3] = [
-    "assets/sprites/gun_00.png",
-    "assets/sprites/gun_01.png",
-    "assets/sprites/gun_02.png",
-];
-
 const HIT_RADIUS: f32 = 20.0; // radio de colision angular del enemigo, en px de mundo
 const GUN_SCALE: f32 = 0.45; // porcion del ancho de ventana que ocupa el arma
 const ALPHA_THRESHOLD: u8 = 20;
-const SILHOUETTE_COLOR: Color = Color::new(90, 90, 90, 255);
 const PICKUP_RADIUS: f32 = 24.0; // px, distancia jugador-caja para recogerla
 const PICKUP_SIZE: f32 = 26.0; // px de mundo, tamaño del brillo del pickup en pantalla
 const AMMO_PICKUP_AMOUNT: i32 = 6; // municion que da cada caja recogida
@@ -50,15 +43,6 @@ impl WeaponKind {
             WeaponKind::Shotgun => "ESCOPETA",
         }
     }
-
-    // tinte multiplicativo para distinguir armas sin arte nuevo (blanco = sin cambio)
-    fn tint(self) -> Color {
-        match self {
-            WeaponKind::Pistol => Color::WHITE,
-            WeaponKind::Rifle => Color::new(170, 210, 255, 255),
-            WeaponKind::Shotgun => Color::new(255, 190, 150, 255),
-        }
-    }
 }
 
 // caja de municion tirada en el mapa; recarga el arma activa al pasar por encima
@@ -73,33 +57,122 @@ pub struct GunSprite {
     frames: Vec<Vec<Color>>,
 }
 
-impl GunSprite {
-    pub fn new() -> Self {
-        let loaded: Vec<Option<(i32, i32, Vec<Color>)>> = GUN_PATHS
-            .iter()
-            .map(|path| match Image::load_image(&crate::paths::resolve(path)) {
-                Ok(image) => Some((image.width(), image.height(), image.get_image_data().to_vec())),
-                Err(e) => {
-                    eprintln!("advertencia: no se pudo cargar el arma {path}: {e}, se usara un reemplazo");
-                    None
-                }
-            })
-            .collect();
+fn blank_canvas(w: i32, h: i32) -> Vec<Color> {
+    vec![Color::new(0, 0, 0, 0); (w * h) as usize]
+}
 
-        if loaded.iter().all(Option::is_none) {
-            eprintln!("advertencia: ningun sprite de arma cargo, arma deshabilitada");
-            return Self { width: 0, height: 0, frames: Vec::new() };
+fn fill_rect(buf: &mut [Color], w: i32, h: i32, x: i32, y: i32, rw: i32, rh: i32, color: Color) {
+    for yy in y..(y + rh) {
+        if yy < 0 || yy >= h {
+            continue;
         }
+        for xx in x..(x + rw) {
+            if xx < 0 || xx >= w {
+                continue;
+            }
+            buf[(yy * w + xx) as usize] = color;
+        }
+    }
+}
 
-        let (width, height) = loaded.iter().flatten().next().map(|(w, h, _)| (*w, *h)).unwrap();
-        let frames = loaded
-            .into_iter()
-            .map(|data| match data {
-                Some((w, h, px)) if w == width && h == height => px,
-                _ => vec![SILHOUETTE_COLOR; (width * height) as usize],
-            })
-            .collect();
+fn fill_circle(buf: &mut [Color], w: i32, h: i32, cx: i32, cy: i32, r: i32, color: Color) {
+    for yy in (cy - r)..(cy + r) {
+        if yy < 0 || yy >= h {
+            continue;
+        }
+        for xx in (cx - r)..(cx + r) {
+            if xx < 0 || xx >= w {
+                continue;
+            }
+            let (dx, dy) = (xx - cx, yy - cy);
+            if dx * dx + dy * dy <= r * r {
+                buf[(yy * w + xx) as usize] = color;
+            }
+        }
+    }
+}
 
+// destello de disparo: tres circulos superpuestos, simula una explosion irregular
+fn muzzle_flash(buf: &mut [Color], w: i32, h: i32, tip_x: i32, tip_y: i32, size: i32) {
+    let flash = Color::new(255, 225, 110, 255);
+    fill_circle(buf, w, h, tip_x, tip_y, size, flash);
+    fill_circle(buf, w, h, tip_x + size / 2, tip_y - size / 2, size / 2, flash);
+    fill_circle(buf, w, h, tip_x + size / 2, tip_y + size / 2, size / 2, flash);
+}
+
+// stage: 0 = reposo, 1 = disparo (destello grande), 2 = disparo (destello chico, retrocediendo)
+fn build_pistol(stage: usize) -> (i32, i32, Vec<Color>) {
+    let (w, h) = (100, 80);
+    let mut buf = blank_canvas(w, h);
+    let metal = Color::new(72, 72, 80, 255);
+    let dark = Color::new(42, 42, 48, 255);
+    let highlight = Color::new(205, 205, 210, 255);
+    let kick = if stage == 0 { 0 } else { 6 - stage as i32 * 2 };
+
+    fill_rect(&mut buf, w, h, 38, 38 - kick, 26, 40, dark); // empuñadura
+    fill_rect(&mut buf, w, h, 22, 14 - kick, 58, 20, metal); // corredera
+    fill_rect(&mut buf, w, h, 70, 6 - kick, 8, 10, highlight); // mira
+    fill_rect(&mut buf, w, h, 44, 50 - kick, 16, 10, dark); // guardamonte
+
+    if stage > 0 {
+        muzzle_flash(&mut buf, w, h, 82, 20 - kick, if stage == 1 { 14 } else { 8 });
+    }
+    (w, h, buf)
+}
+
+fn build_rifle(stage: usize) -> (i32, i32, Vec<Color>) {
+    let (w, h) = (190, 80);
+    let mut buf = blank_canvas(w, h);
+    let wood = Color::new(115, 88, 56, 255);
+    let olive = Color::new(78, 88, 62, 255);
+    let dark = Color::new(38, 38, 42, 255);
+    let accent = Color::new(120, 172, 222, 255);
+    let kick = if stage == 0 { 0 } else { 5 - stage as i32 * 2 };
+
+    fill_rect(&mut buf, w, h, 0, 34 - kick, 42, 24, wood); // culata
+    fill_rect(&mut buf, w, h, 36, 22 - kick, 78, 28, olive); // cuerpo/receptor
+    fill_rect(&mut buf, w, h, 60, 48 - kick, 16, 26, dark); // cargador
+    fill_rect(&mut buf, w, h, 44, 48 - kick, 14, 22, dark); // empuñadura
+    fill_rect(&mut buf, w, h, 108, 30 - kick, 74, 10, dark); // cañon
+    fill_rect(&mut buf, w, h, 76, 10 - kick, 10, 12, accent); // mira/riel
+
+    if stage > 0 {
+        muzzle_flash(&mut buf, w, h, 178, 35 - kick, if stage == 1 { 13 } else { 7 });
+    }
+    (w, h, buf)
+}
+
+fn build_shotgun(stage: usize) -> (i32, i32, Vec<Color>) {
+    let (w, h) = (170, 90);
+    let mut buf = blank_canvas(w, h);
+    let wood = Color::new(122, 88, 52, 255);
+    let dark_wood = Color::new(96, 68, 40, 255);
+    let metal = Color::new(78, 78, 86, 255);
+    let accent = Color::new(228, 122, 42, 255);
+    let kick = if stage == 0 { 0 } else { 7 - stage as i32 * 3 };
+
+    fill_rect(&mut buf, w, h, 0, 42 - kick, 48, 28, wood); // culata
+    fill_rect(&mut buf, w, h, 42, 30 - kick, 42, 36, metal); // receptor
+    fill_rect(&mut buf, w, h, 78, 46 - kick, 38, 18, dark_wood); // guardamano
+    fill_rect(&mut buf, w, h, 80, 26 - kick, 82, 9, metal); // cañon superior
+    fill_rect(&mut buf, w, h, 80, 38 - kick, 82, 9, metal); // cañon inferior
+    fill_rect(&mut buf, w, h, 44, 30 - kick, 34, 6, accent); // banda de color
+
+    if stage > 0 {
+        muzzle_flash(&mut buf, w, h, 158, 34 - kick, if stage == 1 { 18 } else { 10 });
+    }
+    (w, h, buf)
+}
+
+impl GunSprite {
+    pub fn procedural(kind: WeaponKind) -> Self {
+        let build: fn(usize) -> (i32, i32, Vec<Color>) = match kind {
+            WeaponKind::Pistol => build_pistol,
+            WeaponKind::Rifle => build_rifle,
+            WeaponKind::Shotgun => build_shotgun,
+        };
+        let (width, height, _) = build(0);
+        let frames = (0..3).map(|stage| build(stage).2).collect();
         Self { width, height, frames }
     }
 
@@ -109,15 +182,9 @@ impl GunSprite {
         self.frames[frame][y * self.width as usize + x]
     }
 
-    // ancho/alto del PNG fuente; usarlo evita estirar el arma si no es cuadrada
+    // ancho/alto del lienzo; usarlo evita estirar el arma si no es cuadrada
     pub fn aspect(&self) -> f32 {
         self.width as f32 / self.height as f32
-    }
-}
-
-impl Default for GunSprite {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -243,7 +310,6 @@ pub fn draw_gun(fb: &mut Framebuffer, gun: &GunSprite, weapon: &Weapon, window_w
         return;
     }
     let frame = weapon.frame_index();
-    let tint = weapon.kind().tint();
     let sprite_w = window_width as f32 * GUN_SCALE;
     let sprite_h = sprite_w / gun.aspect();
     let x0 = ((window_width as f32 - sprite_w) / 2.0) as i32;
@@ -257,12 +323,6 @@ pub fn draw_gun(fb: &mut Framebuffer, gun: &GunSprite, weapon: &Weapon, window_w
             if color.a < ALPHA_THRESHOLD {
                 continue;
             }
-            let color = Color::new(
-                ((color.r as u32 * tint.r as u32) / 255) as u8,
-                ((color.g as u32 * tint.g as u32) / 255) as u8,
-                ((color.b as u32 * tint.b as u32) / 255) as u8,
-                color.a,
-            );
             fb.set_current_color(color);
             fb.point(x0 + x, y0 + y);
         }

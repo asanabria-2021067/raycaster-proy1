@@ -133,7 +133,8 @@ fn main() {
         .expect("no se pudo crear la textura del framebuffer");
 
     let sprite_manager = SpriteManager::new();
-    let gun_sprite = GunSprite::new();
+    let gun_sprites =
+        [GunSprite::procedural(WeaponKind::Pistol), GunSprite::procedural(WeaponKind::Rifle), GunSprite::procedural(WeaponKind::Shotgun)];
     let menu_art = MenuArt::new(&mut rl, &thread);
 
     let mut state = GameState::Welcome;
@@ -437,7 +438,7 @@ fn main() {
                         lvl.block_size,
                         WINDOW_WIDTH,
                     );
-                    weapon::draw_gun(&mut framebuffer, &gun_sprite, &weapons[active_weapon], WINDOW_WIDTH, WINDOW_HEIGHT);
+                    weapon::draw_gun(&mut framebuffer, &gun_sprites[active_weapon], &weapons[active_weapon], WINDOW_WIDTH, WINDOW_HEIGHT);
                 }
                 framebuffer.swap(&mut texture);
             }
