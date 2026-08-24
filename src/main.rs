@@ -488,7 +488,9 @@ fn main() {
                     screens::draw_toast(&mut d, WINDOW_WIDTH, msg);
                 }
             }
-            GameState::Success => screens::draw_success(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT),
+            GameState::Success => {
+                screens::draw_success(&mut d, &menu_art.mision_superada, WINDOW_WIDTH, WINDOW_HEIGHT)
+            }
             GameState::Credits => screens::draw_credits(&mut d, &menu_art.creditos, WINDOW_WIDTH, WINDOW_HEIGHT),
             GameState::GameOver => screens::draw_game_over(&mut d, &menu_art.game_over, WINDOW_WIDTH, WINDOW_HEIGHT),
         }

@@ -184,8 +184,18 @@ pub fn draw_level_select(
     }
 }
 
-pub fn draw_success(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32) {
+pub fn draw_success(d: &mut RaylibDrawHandle, art: &Option<Texture2D>, window_width: i32, window_height: i32) {
     d.clear_background(BG_SUCCESS);
+    if crate::menu_art::draw_fullscreen(d, art, window_width, window_height) {
+        d.draw_text(
+            "ENTER para volver a seleccion de nivel",
+            window_width / 2 - 260,
+            window_height - 60,
+            22,
+            Color::GOLD,
+        );
+        return;
+    }
     d.draw_text("META ALCANZADA", window_width / 2 - 270, window_height / 2 - 60, 50, Color::GOLD);
     d.draw_text(
         "ENTER para volver a seleccion de nivel",

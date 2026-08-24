@@ -5,6 +5,7 @@ const INSTRUCCIONES: &str = "assets/menu/instrucciones.jpeg";
 const NIVELES: &str = "assets/menu/niveles.jpeg";
 const CREDITOS: &str = "assets/menu/creditos.jpeg";
 const GAME_OVER: &str = "assets/menu/game over.jpeg";
+const MISION_SUPERADA: &str = "assets/menu/Mision superada.jpeg";
 
 pub struct MenuArt {
     pub principal: Option<Texture2D>,
@@ -12,6 +13,7 @@ pub struct MenuArt {
     pub niveles: Option<Texture2D>,
     pub creditos: Option<Texture2D>,
     pub game_over: Option<Texture2D>,
+    pub mision_superada: Option<Texture2D>,
 }
 
 fn load(rl: &mut RaylibHandle, thread: &RaylibThread, path: &str) -> Option<Texture2D> {
@@ -32,6 +34,7 @@ impl MenuArt {
             niveles: load(rl, thread, NIVELES),
             creditos: load(rl, thread, CREDITOS),
             game_over: load(rl, thread, GAME_OVER),
+            mision_superada: load(rl, thread, MISION_SUPERADA),
         }
     }
 }
