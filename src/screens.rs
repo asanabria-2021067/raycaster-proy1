@@ -306,6 +306,23 @@ pub fn draw_fps(d: &mut RaylibDrawHandle, window_width: i32, fps: f32) {
     d.draw_text(&format!("FPS {fps:.0}"), window_width - 130, 10, 22, Color::LIME);
 }
 
+pub fn draw_crosshair(d: &mut RaylibDrawHandle, window_width: i32, window_height: i32, aiming: bool) {
+    let cx = window_width / 2;
+    let cy = window_height / 2;
+    let color = if aiming { Color::new(255, 70, 70, 235) } else { Color::new(255, 255, 255, 200) };
+    let gap = if aiming { 3 } else { 6 };
+    let len = if aiming { 7 } else { 9 };
+    let thick = 2;
+
+    d.draw_rectangle(cx - thick / 2, cy - gap - len, thick, len, color);
+    d.draw_rectangle(cx - thick / 2, cy + gap, thick, len, color);
+    d.draw_rectangle(cx - gap - len, cy - thick / 2, len, thick, color);
+    d.draw_rectangle(cx + gap, cy - thick / 2, len, thick, color);
+    if aiming {
+        d.draw_circle_lines(cx, cy, 3.0, color);
+    }
+}
+
 pub fn draw_toast(d: &mut RaylibDrawHandle, window_width: i32, message: &str) {
     let text_w = d.measure_text(message, 24);
     let box_w = text_w + 40;

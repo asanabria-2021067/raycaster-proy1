@@ -34,6 +34,8 @@ const CONTACT_RADIUS: f32 = 28.0; // px, distancia enemigo-jugador para recibir 
 const DAMAGE_PER_HIT: f32 = 15.0;
 const DAMAGE_COOLDOWN: f32 = 0.6; // seg entre golpes mientras el enemigo sigue en contacto
 const DAMAGE_FLASH_DURATION: f32 = 0.35; // seg que dura el destello rojo al recibir dano
+const AIM_FOV_SCALE: f32 = 0.6; // fov efectivo al apuntar (click derecho), simula zoom
+const AIM_SENSITIVITY_SCALE: f32 = 0.5; // mouse mas lento al apuntar, para apuntar fino
 
 fn starting_weapons() -> Vec<Weapon> {
     vec![Weapon::new(WeaponKind::Pistol), Weapon::new(WeaponKind::Rifle), Weapon::new(WeaponKind::Shotgun)]
@@ -152,6 +154,7 @@ fn main() {
     let mut damage_flash = 0.0f32;
     let mut pickup_message: Option<String> = None;
     let mut pickup_message_timer = 0.0f32;
+    let mut aiming = false;
 
     let mut show_fps = false;
     let mut fps_samples: Vec<f32> = Vec::new();
@@ -235,7 +238,9 @@ fn main() {
                 let move_input = input::read_keyboard(&rl).combine(input::read_gamepad_move(&rl));
                 let sprint = rl.is_key_down(KeyboardKey::KEY_LEFT_SHIFT) || rl.is_key_down(KeyboardKey::KEY_RIGHT_SHIFT);
                 lvl.player.mover(&lvl.maze, lvl.block_size, move_input.forward, move_input.strafe, sprint, dt);
-                lvl.player.a += input::read_mouse_rotation(&rl) + input::read_gamepad_rotation(&rl, dt);
+                aiming = rl.is_mouse_button_down(MouseButton::MOUSE_BUTTON_RIGHT);
+                let mouse_sensitivity = if aiming { AIM_SENSITIVITY_SCALE } else { 1.0 };
+                lvl.player.a += input::read_mouse_rotation(&rl) * mouse_sensitivity + input::read_gamepad_rotation(&rl, dt);
                 anim_frame = sprites::advance_frame(anim_frame, &mut anim_timer, dt, sprite_manager.frame_count());
                 let mut ranged_damage = 0.0f32;
                 for enemy in lvl.enemies.iter_mut() {
@@ -387,12 +392,13 @@ fn main() {
                         lvl.block_size,
                     );
                 } else {
+                    let render_fov = if aiming { lvl.player.fov * AIM_FOV_SCALE } else { lvl.player.fov };
                     let rays = caster::cast_fov(
                         &lvl.maze,
                         lvl.player.pos_x,
                         lvl.player.pos_y,
                         lvl.player.a,
-                        lvl.player.fov,
+                        render_fov,
                         lvl.block_size,
                         WINDOW_WIDTH as usize / 2,
                     );
@@ -405,7 +411,7 @@ fn main() {
                         WINDOW_WIDTH,
                         WINDOW_HEIGHT,
                         lvl.block_size,
-                        lvl.player.fov,
+                        render_fov,
                         &lvl.textures,
                     );
                     sprites::render_sprites(
@@ -414,7 +420,7 @@ fn main() {
                         lvl.player.pos_x,
                         lvl.player.pos_y,
                         lvl.player.a,
-                        lvl.player.fov,
+                        render_fov,
                         WINDOW_WIDTH,
                         WINDOW_HEIGHT,
                         lvl.block_size,
@@ -428,7 +434,7 @@ fn main() {
                         lvl.player.pos_x,
                         lvl.player.pos_y,
                         lvl.player.a,
-                        lvl.player.fov,
+                        render_fov,
                         WINDOW_WIDTH,
                         WINDOW_HEIGHT,
                         &zbuffer,
@@ -486,6 +492,9 @@ fn main() {
                 }
                 if let Some(msg) = &pickup_message {
                     screens::draw_toast(&mut d, WINDOW_WIDTH, msg);
+                }
+                if !mode_2d {
+                    screens::draw_crosshair(&mut d, WINDOW_WIDTH, WINDOW_HEIGHT, aiming);
                 }
             }
             GameState::Success => {
