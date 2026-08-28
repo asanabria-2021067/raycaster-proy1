@@ -6,6 +6,8 @@ propio; raylib solo se usa para ventana, input, audio y texto de las pantallas d
 
 ![gameplay](docs/gameplay.gif)
 
+Video: https://canva.link/m4a3sk753txqqsb
+
 ## Compilacion
 
 Requiere Rust (edicion 2021) y las dependencias de build de `raylib-sys` (CMake y un compilador
