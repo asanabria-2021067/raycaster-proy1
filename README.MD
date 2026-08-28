@@ -41,4 +41,20 @@ cargo run --release
 
 `levels/level1.txt` es un mapa hecho a mano. `level2.txt` y `level3.txt` son laberintos
 generados con backtracking recursivo (garantiza un unico camino entre el spawn `p` y la meta
-`g`), con enemigos `e` distribuidos en celdas abiertas al azar.
+`g`), con enemigos `e`/`x` distribuidos en celdas abiertas al azar. Los tres mapas son ~1.5x
+mas grandes que la version anterior, con mas enemigos (12/17/14 en nivel 1/2/3) acorde al area.
+
+Los enemigos usan sprites procedurales distintos por tipo (perseguidor cuerpo a cuerpo vs.
+tirador armado), generados en codigo igual que las armas, en vez de un tinte sobre un unico
+dibujo.
+
+Ademas de las cajas de municion (`r`), los mapas tienen botiquines (`h`) que curan al
+jugador al pasar por encima; se ven como una cruz verde en el mundo, distinta del diamante
+amarillo de la municion.
+
+## Musica
+
+`assets/audio/bgm.ogg` es musica original, sintetizada por completo en codigo (sin muestras
+ni librerias externas): bajo al galope, bombo/caja/hihat programados y una fanfarria de
+"bronce" aditivo al estilo run-and-gun, sobre una progresion Am-F-C-G. Suena en loop durante
+las partidas.

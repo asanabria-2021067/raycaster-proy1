@@ -6,6 +6,7 @@ mod maze;
 mod menu_art;
 mod minimap;
 mod paths;
+mod pixelart;
 mod player;
 mod render2d;
 mod render3d;
@@ -23,7 +24,7 @@ use raylib::prelude::*;
 use screens::GameState;
 use sprites::{Enemy, EnemyKind, SpriteManager};
 use textures::TextureManager;
-use weapon::{GunSprite, Pickup, Weapon, WeaponKind};
+use weapon::{GunSprite, Pickup, PickupKind, Weapon, WeaponKind};
 
 const WINDOW_WIDTH: i32 = 1300;
 const WINDOW_HEIGHT: i32 = 900;
@@ -91,11 +92,13 @@ impl LevelState {
                 Enemy::new(x, y, kind)
             })
             .collect();
-        let pickups = maze::find_all_char(&maze, 'r')
-            .into_iter()
-            .map(|cell| {
+        let ammo_pickups = maze::find_all_char(&maze, 'r').into_iter().map(|cell| (cell, PickupKind::Ammo));
+        let health_pickups = maze::find_all_char(&maze, 'h').into_iter().map(|cell| (cell, PickupKind::Health));
+        let pickups = ammo_pickups
+            .chain(health_pickups)
+            .map(|(cell, kind)| {
                 let (x, y) = cell_center(cell, block_size);
-                Pickup { x, y }
+                Pickup { x, y, kind }
             })
             .collect();
         let textures = TextureManager::new(texture_dir);
@@ -291,9 +294,18 @@ fn main() {
                     }
                 }
 
-                if let Some(amount) = weapon::try_collect_pickup(&mut lvl.pickups, lvl.player.pos_x, lvl.player.pos_y) {
-                    weapon.add_ammo(amount);
-                    pickup_message = Some(format!("+{amount} MUNICION"));
+                if let Some((kind, amount)) = weapon::try_collect_pickup(&mut lvl.pickups, lvl.player.pos_x, lvl.player.pos_y) {
+                    let label = match kind {
+                        PickupKind::Ammo => {
+                            weapon.add_ammo(amount);
+                            "MUNICION"
+                        }
+                        PickupKind::Health => {
+                            lvl.health = (lvl.health + amount as f32).min(PLAYER_MAX_HEALTH);
+                            "VIDA"
+                        }
+                    };
+                    pickup_message = Some(format!("+{amount} {label}"));
                     pickup_message_timer = 2.0;
                 }
                 pickup_message_timer = (pickup_message_timer - dt).max(0.0);

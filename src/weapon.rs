@@ -5,6 +5,7 @@ use raylib::prelude::*;
 use crate::caster::cast_ray;
 use crate::framebuffer::Framebuffer;
 use crate::maze::Maze;
+use crate::pixelart::{beveled_rect, blank_canvas, fill_circle, fill_rect, rect_outline, rivet};
 use crate::sprites::Enemy;
 
 const HIT_RADIUS: f32 = 20.0; // radio de colision angular del enemigo, en px de mundo
@@ -13,6 +14,7 @@ const ALPHA_THRESHOLD: u8 = 20;
 const PICKUP_RADIUS: f32 = 24.0; // px, distancia jugador-caja para recogerla
 const PICKUP_SIZE: f32 = 26.0; // px de mundo, tamaño del brillo del pickup en pantalla
 const AMMO_PICKUP_AMOUNT: i32 = 6; // municion que da cada caja recogida
+const HEALTH_PICKUP_AMOUNT: i32 = 35; // vida que da cada botiquin recogido
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum WeaponKind {
@@ -45,51 +47,23 @@ impl WeaponKind {
     }
 }
 
-// caja de municion tirada en el mapa; recarga el arma activa al pasar por encima
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum PickupKind {
+    Ammo,
+    Health,
+}
+
+// caja de municion o botiquin tirado en el mapa; se recoge al pasar por encima
 pub struct Pickup {
     pub x: f32,
     pub y: f32,
+    pub kind: PickupKind,
 }
 
 pub struct GunSprite {
     width: i32,
     height: i32,
     frames: Vec<Vec<Color>>,
-}
-
-fn blank_canvas(w: i32, h: i32) -> Vec<Color> {
-    vec![Color::new(0, 0, 0, 0); (w * h) as usize]
-}
-
-fn fill_rect(buf: &mut [Color], w: i32, h: i32, x: i32, y: i32, rw: i32, rh: i32, color: Color) {
-    for yy in y..(y + rh) {
-        if yy < 0 || yy >= h {
-            continue;
-        }
-        for xx in x..(x + rw) {
-            if xx < 0 || xx >= w {
-                continue;
-            }
-            buf[(yy * w + xx) as usize] = color;
-        }
-    }
-}
-
-fn fill_circle(buf: &mut [Color], w: i32, h: i32, cx: i32, cy: i32, r: i32, color: Color) {
-    for yy in (cy - r)..(cy + r) {
-        if yy < 0 || yy >= h {
-            continue;
-        }
-        for xx in (cx - r)..(cx + r) {
-            if xx < 0 || xx >= w {
-                continue;
-            }
-            let (dx, dy) = (xx - cx, yy - cy);
-            if dx * dx + dy * dy <= r * r {
-                buf[(yy * w + xx) as usize] = color;
-            }
-        }
-    }
 }
 
 // destello de disparo: tres circulos superpuestos, simula una explosion irregular
@@ -100,33 +74,6 @@ fn muzzle_flash(buf: &mut [Color], w: i32, h: i32, tip_x: i32, tip_y: i32, size:
     fill_circle(buf, w, h, tip_x + size / 2, tip_y - size / 2, size / 2, flash);
     fill_circle(buf, w, h, tip_x + size / 2, tip_y + size / 2, size / 2, flash);
     fill_circle(buf, w, h, tip_x, tip_y, (size / 2).max(2), core);
-}
-
-fn shift(c: Color, amount: i32) -> Color {
-    let clamp = |v: u8| (v as i32 + amount).clamp(0, 255) as u8;
-    Color::new(clamp(c.r), clamp(c.g), clamp(c.b), c.a)
-}
-
-// rectangulo con borde superior claro e inferior oscuro, simula volumen sin arte real
-fn beveled_rect(buf: &mut [Color], w: i32, h: i32, x: i32, y: i32, rw: i32, rh: i32, color: Color) {
-    fill_rect(buf, w, h, x, y, rw, rh, color);
-    fill_rect(buf, w, h, x, y, rw, 2.min(rh), shift(color, 35));
-    if rh > 2 {
-        fill_rect(buf, w, h, x, y + rh - 2, rw, 2, shift(color, -35));
-    }
-}
-
-// contorno rectangular hueco (guardamonte real, no un bloque solido)
-#[allow(clippy::too_many_arguments)]
-fn rect_outline(buf: &mut [Color], w: i32, h: i32, x: i32, y: i32, rw: i32, rh: i32, thick: i32, color: Color) {
-    fill_rect(buf, w, h, x, y, rw, thick, color);
-    fill_rect(buf, w, h, x, y + rh - thick, rw, thick, color);
-    fill_rect(buf, w, h, x, y, thick, rh, color);
-    fill_rect(buf, w, h, x + rw - thick, y, thick, rh, color);
-}
-
-fn rivet(buf: &mut [Color], w: i32, h: i32, x: i32, y: i32) {
-    fill_circle(buf, w, h, x, y, 2, Color::new(25, 25, 28, 255));
 }
 
 // stage: 0 = reposo, 1 = disparo (destello grande), 2 = disparo (destello chico, retrocediendo)
@@ -364,15 +311,20 @@ pub fn draw_gun(fb: &mut Framebuffer, gun: &GunSprite, weapon: &Weapon, window_w
     }
 }
 
-// recoge la caja mas cercana si el jugador esta encima; devuelve la municion otorgada
-pub fn try_collect_pickup(pickups: &mut Vec<Pickup>, player_x: f32, player_y: f32) -> Option<i32> {
+// recoge la caja mas cercana si el jugador esta encima; devuelve su tipo y la cantidad otorgada
+pub fn try_collect_pickup(pickups: &mut Vec<Pickup>, player_x: f32, player_y: f32) -> Option<(PickupKind, i32)> {
     let idx = pickups.iter().position(|p| {
         let dx = p.x - player_x;
         let dy = p.y - player_y;
         (dx * dx + dy * dy).sqrt() < PICKUP_RADIUS
     })?;
+    let kind = pickups[idx].kind;
     pickups.remove(idx);
-    Some(AMMO_PICKUP_AMOUNT)
+    let amount = match kind {
+        PickupKind::Ammo => AMMO_PICKUP_AMOUNT,
+        PickupKind::Health => HEALTH_PICKUP_AMOUNT,
+    };
+    Some((kind, amount))
 }
 
 // brillo tipo diamante que marca las armas tiradas en el mapa; reusa la proyeccion de billboard
@@ -392,7 +344,8 @@ pub fn render_pickups(
         return;
     }
     let dist_to_projection_plane = (window_width as f32 / 2.0) / (fov / 2.0).tan();
-    let glow = Color::new(255, 215, 90, 255);
+    let ammo_glow = Color::new(255, 215, 90, 255);
+    let health_glow = Color::new(90, 235, 120, 255);
 
     for pickup in pickups {
         let dx = pickup.x - player_x;
@@ -434,8 +387,15 @@ pub fn render_pickups(
             let tx = (x - x0) as f32 / size.max(1.0);
             for y in y0..y1 {
                 let ty = (y - y0) as f32 / size.max(1.0);
-                // silueta de diamante: solo pinta cerca del centro del cuadro
-                if (tx - 0.5).abs() + (ty - 0.5).abs() > 0.5 {
+                let (visible, glow) = match pickup.kind {
+                    // silueta de diamante: solo pinta cerca del centro del cuadro
+                    PickupKind::Ammo => ((tx - 0.5).abs() + (ty - 0.5).abs() <= 0.5, ammo_glow),
+                    // cruz de botiquin: banda horizontal o vertical centrada
+                    PickupKind::Health => {
+                        ((tx - 0.5).abs() < 0.16 || (ty - 0.5).abs() < 0.16, health_glow)
+                    }
+                };
+                if !visible {
                     continue;
                 }
                 fb.set_current_color(glow);

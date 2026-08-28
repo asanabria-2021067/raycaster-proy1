@@ -5,15 +5,9 @@ use raylib::prelude::*;
 use crate::caster::cast_ray;
 use crate::framebuffer::Framebuffer;
 use crate::maze::{is_wall, Maze};
+use crate::pixelart::{beveled_rect, blank_canvas, fill_circle, fill_rect, rivet};
 
-const SPRITE_PATHS: [&str; 4] = [
-    "assets/sprites/enemy_00.png",
-    "assets/sprites/enemy_01.png",
-    "assets/sprites/enemy_02.png",
-    "assets/sprites/enemy_03.png",
-];
-
-const SILHOUETTE_COLOR: Color = Color::new(180, 20, 20, 255);
+const SPRITE_FRAME_COUNT: usize = 4;
 const ALPHA_THRESHOLD: u8 = 20;
 const FOV_MARGIN: f32 = 0.3; // margen para no recortar sprites a medio entrar en pantalla
 const ANIM_FRAME_SECONDS: f32 = 0.15;
@@ -30,8 +24,6 @@ const SHOOTER_PREFERRED_DIST: f32 = 260.0; // se acerca hasta esta distancia, no
 const SHOOTER_FIRE_COOLDOWN: f32 = 1.4; // seg entre disparos
 const SHOOTER_DAMAGE: f32 = 10.0;
 
-const SHOOTER_TINT: Color = Color::new(90, 150, 255, 255);
-
 pub fn advance_frame(current: usize, timer: &mut f32, dt: f32, frame_count: usize) -> usize {
     if frame_count == 0 {
         return 0;
@@ -45,55 +37,101 @@ pub fn advance_frame(current: usize, timer: &mut f32, dt: f32, frame_count: usiz
     }
 }
 
+// silueta humanoide dibujada en codigo, igual que las armas en weapon.rs; el offset de piernas
+// por frame produce el ciclo de caminata sin depender de PNGs externos
+fn build_humanoid(frame: usize, helmet: Color, jacket: Color, pants: Color, skin: Color, accent: Color) -> (i32, i32, Vec<Color>) {
+    let (w, h) = (40, 64);
+    let mut buf = blank_canvas(w, h);
+    let boot = Color::new(28, 26, 24, 255);
+    let stride = match frame % 4 {
+        0 => 0,
+        1 => 4,
+        2 => 0,
+        _ => -4,
+    };
+
+    // piernas: se turnan para adelante/atras segun el frame
+    beveled_rect(&mut buf, w, h, 11 - stride / 2, 46, 8, 16, pants);
+    beveled_rect(&mut buf, w, h, 21 + stride / 2, 46, 8, 16, pants);
+    fill_rect(&mut buf, w, h, 11 - stride / 2, 58, 8, 6, boot);
+    fill_rect(&mut buf, w, h, 21 + stride / 2, 58, 8, 6, boot);
+
+    beveled_rect(&mut buf, w, h, 9, 22, 22, 26, jacket); // torso
+    beveled_rect(&mut buf, w, h, 4, 24, 6, 18, jacket); // brazo izq
+    beveled_rect(&mut buf, w, h, 30, 24, 6, 18, jacket); // brazo der
+    fill_rect(&mut buf, w, h, 4, 40, 6, 4, skin); // mano izq
+    fill_rect(&mut buf, w, h, 30, 40, 6, 4, skin); // mano der
+
+    fill_circle(&mut buf, w, h, 20, 14, 9, skin); // cabeza
+    beveled_rect(&mut buf, w, h, 10, 4, 20, 10, helmet); // casco
+    fill_rect(&mut buf, w, h, 10, 12, 20, 3, accent); // visera/banda
+    rivet(&mut buf, w, h, 14, 30);
+    rivet(&mut buf, w, h, 26, 30);
+
+    (w, h, buf)
+}
+
+fn build_chaser(frame: usize) -> (i32, i32, Vec<Color>) {
+    build_humanoid(
+        frame,
+        Color::new(46, 58, 36, 255),  // casco verde oliva oscuro
+        Color::new(78, 88, 62, 255),  // chaqueta verde militar
+        Color::new(52, 46, 34, 255),  // pantalon marron oscuro
+        Color::new(206, 172, 138, 255),
+        Color::new(150, 40, 30, 255), // banda roja, distingue al perseguidor de lejos
+    )
+}
+
+fn build_shooter(frame: usize) -> (i32, i32, Vec<Color>) {
+    let (w, h, mut buf) = build_humanoid(
+        frame,
+        Color::new(35, 55, 95, 255),   // casco azul acero
+        Color::new(60, 95, 150, 255),  // armadura azul
+        Color::new(30, 34, 40, 255),   // pantalon gris oscuro
+        Color::new(206, 172, 138, 255),
+        Color::new(150, 200, 240, 255), // visera celeste
+    );
+    // rifle cruzado al pecho, silueta distinta a la del perseguidor a mano limpia
+    fill_rect(&mut buf, w, h, 2, 30, 30, 4, Color::new(40, 40, 44, 255));
+    fill_rect(&mut buf, w, h, 26, 26, 5, 12, Color::new(60, 60, 66, 255));
+    (w, h, buf)
+}
+
 pub struct SpriteManager {
     width: i32,
     height: i32,
-    frames: Vec<Vec<Color>>,
+    chaser_frames: Vec<Vec<Color>>,
+    shooter_frames: Vec<Vec<Color>>,
 }
 
 impl SpriteManager {
     pub fn new() -> Self {
-        let loaded: Vec<Option<(i32, i32, Vec<Color>)>> = SPRITE_PATHS
-            .iter()
-            .map(|path| match Image::load_image(&crate::paths::resolve(path)) {
-                Ok(image) => Some((image.width(), image.height(), image.get_image_data().to_vec())),
-                Err(e) => {
-                    eprintln!("advertencia: no se pudo cargar el sprite {path}: {e}, se usara un reemplazo");
-                    None
-                }
-            })
-            .collect();
-
-        if loaded.iter().all(Option::is_none) {
-            eprintln!("advertencia: ningun sprite de enemigo cargo, enemigos deshabilitados");
-            return Self { width: 0, height: 0, frames: Vec::new() };
-        }
-
-        let (width, height) = loaded.iter().flatten().next().map(|(w, h, _)| (*w, *h)).unwrap();
-        let frames = loaded
-            .into_iter()
-            .map(|data| match data {
-                Some((w, h, px)) if w == width && h == height => px,
-                _ => vec![SILHOUETTE_COLOR; (width * height) as usize],
-            })
-            .collect();
-
-        Self { width, height, frames }
+        let (width, height, _) = build_chaser(0);
+        let chaser_frames = (0..SPRITE_FRAME_COUNT).map(|f| build_chaser(f).2).collect();
+        let shooter_frames = (0..SPRITE_FRAME_COUNT).map(|f| build_shooter(f).2).collect();
+        Self { width, height, chaser_frames, shooter_frames }
     }
 
     pub fn frame_count(&self) -> usize {
-        self.frames.len()
+        SPRITE_FRAME_COUNT
     }
 
-    // ancho/alto del PNG fuente; usarlo evita estirar sprites que no son cuadrados
+    // ancho/alto del lienzo; usarlo evita estirar sprites que no son cuadrados
     pub fn aspect(&self) -> f32 {
         self.width as f32 / self.height as f32
     }
 
-    fn sample(&self, frame: usize, tx: f32, ty: f32) -> Color {
+    fn frames_for(&self, kind: EnemyKind) -> &[Vec<Color>] {
+        match kind {
+            EnemyKind::Chaser => &self.chaser_frames,
+            EnemyKind::Shooter => &self.shooter_frames,
+        }
+    }
+
+    fn sample(&self, kind: EnemyKind, frame: usize, tx: f32, ty: f32) -> Color {
         let x = (tx.clamp(0.0, 0.9999) * self.width as f32) as usize;
         let y = (ty.clamp(0.0, 0.9999) * self.height as f32) as usize;
-        self.frames[frame][y * self.width as usize + x]
+        self.frames_for(kind)[frame][y * self.width as usize + x]
     }
 }
 
@@ -179,16 +217,6 @@ fn enemy_collides(maze: &Maze, block_size: i32, x: f32, y: f32) -> bool {
     })
 }
 
-// multiplica canal por canal para distinguir tipos de enemigo sin arte nuevo
-fn tint(c: Color, t: Color) -> Color {
-    Color::new(
-        ((c.r as u32 * t.r as u32) / 255) as u8,
-        ((c.g as u32 * t.g as u32) / 255) as u8,
-        ((c.b as u32 * t.b as u32) / 255) as u8,
-        c.a,
-    )
-}
-
 fn normalize_angle(mut angle: f32) -> f32 {
     while angle > PI {
         angle -= 2.0 * PI;
@@ -265,11 +293,10 @@ pub fn render_sprites(
             let tx = (x - x0) as f32 / sprite_width.max(1.0);
             for y in y0..y1 {
                 let ty = (y as f32 - (center_y - sprite_height / 2.0)) / sprite_height.max(1.0);
-                let color = sprites.sample(frame, tx, ty);
+                let color = sprites.sample(enemy.kind, frame, tx, ty);
                 if color.a < ALPHA_THRESHOLD {
                     continue;
                 }
-                let color = if enemy.kind == EnemyKind::Shooter { tint(color, SHOOTER_TINT) } else { color };
                 fb.set_current_color(color);
                 fb.point(x, y);
             }
