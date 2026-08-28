@@ -13,7 +13,7 @@ const GUN_SCALE: f32 = 0.45; // porcion del ancho de ventana que ocupa el arma
 const ALPHA_THRESHOLD: u8 = 20;
 const PICKUP_RADIUS: f32 = 24.0; // px, distancia jugador-caja para recogerla
 const PICKUP_SIZE: f32 = 26.0; // px de mundo, tamaño del brillo del pickup en pantalla
-const AMMO_PICKUP_AMOUNT: i32 = 6; // municion que da cada caja recogida
+const AMMO_PICKUP_AMOUNT: i32 = 3; // municion que da cada caja recogida, sube la de todas las armas
 const HEALTH_PICKUP_AMOUNT: i32 = 35; // vida que da cada botiquin recogido
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -32,9 +32,9 @@ struct WeaponStats {
 impl WeaponKind {
     fn stats(self) -> WeaponStats {
         match self {
-            WeaponKind::Pistol => WeaponStats { fire_duration: 0.2, max_ammo: 12, reload_duration: 1.2 },
-            WeaponKind::Rifle => WeaponStats { fire_duration: 0.1, max_ammo: 24, reload_duration: 1.6 },
-            WeaponKind::Shotgun => WeaponStats { fire_duration: 0.5, max_ammo: 6, reload_duration: 1.8 },
+            WeaponKind::Pistol => WeaponStats { fire_duration: 0.2, max_ammo: 10, reload_duration: 1.2 },
+            WeaponKind::Rifle => WeaponStats { fire_duration: 0.1, max_ammo: 10, reload_duration: 1.6 },
+            WeaponKind::Shotgun => WeaponStats { fire_duration: 0.5, max_ammo: 10, reload_duration: 1.8 },
         }
     }
 

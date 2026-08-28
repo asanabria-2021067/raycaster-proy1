@@ -24,6 +24,8 @@ const SHOOTER_PREFERRED_DIST: f32 = 260.0; // se acerca hasta esta distancia, no
 const SHOOTER_FIRE_COOLDOWN: f32 = 1.4; // seg entre disparos
 const SHOOTER_DAMAGE: f32 = 10.0;
 
+const ALERT_DURATION: f32 = 6.0; // seg que persiguen tras oir un disparo, aunque el jugador salga de rango
+
 pub fn advance_frame(current: usize, timer: &mut f32, dt: f32, frame_count: usize) -> usize {
     if frame_count == 0 {
         return 0;
@@ -152,11 +154,17 @@ pub struct Enemy {
     pub y: f32,
     pub kind: EnemyKind,
     fire_cooldown: f32,
+    alert_timer: f32,
 }
 
 impl Enemy {
     pub fn new(x: f32, y: f32, kind: EnemyKind) -> Self {
-        Self { x, y, kind, fire_cooldown: 0.0 }
+        Self { x, y, kind, fire_cooldown: 0.0, alert_timer: 0.0 }
+    }
+
+    // el enemigo oyo un disparo: persigue al jugador aunque este fuera de su rango normal
+    pub fn alert(&mut self) {
+        self.alert_timer = ALERT_DURATION;
     }
 
     // avanza siempre hacia el jugador si esta en rango, deslizandose contra las paredes
@@ -179,16 +187,18 @@ impl Enemy {
         let dy = player_y - self.y;
         let dist = (dx * dx + dy * dy).sqrt();
         self.fire_cooldown = (self.fire_cooldown - dt).max(0.0);
+        self.alert_timer = (self.alert_timer - dt).max(0.0);
+        let alerted = self.alert_timer > 0.0;
 
         match self.kind {
             EnemyKind::Chaser => {
-                if dist > STOP_DISTANCE && dist <= CHASE_RANGE {
+                if dist > STOP_DISTANCE && (dist <= CHASE_RANGE || alerted) {
                     self.approach(maze, block_size, dx, dy, dist, dt);
                 }
                 None
             }
             EnemyKind::Shooter => {
-                if dist > SHOOTER_RANGE {
+                if dist > SHOOTER_RANGE && !alerted {
                     return None;
                 }
                 if dist > SHOOTER_PREFERRED_DIST {

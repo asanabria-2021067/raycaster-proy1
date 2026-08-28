@@ -283,6 +283,10 @@ fn main() {
                         lvl.player.a,
                         lvl.block_size,
                     );
+                    // el disparo se oye en todo el nivel: los enemigos empiezan a perseguir
+                    for enemy in lvl.enemies.iter_mut() {
+                        enemy.alert();
+                    }
                 }
 
                 if rl.is_key_pressed(KeyboardKey::KEY_M) {
@@ -297,11 +301,19 @@ fn main() {
                 if let Some((kind, amount)) = weapon::try_collect_pickup(&mut lvl.pickups, lvl.player.pos_x, lvl.player.pos_y) {
                     let label = match kind {
                         PickupKind::Ammo => {
-                            weapon.add_ammo(amount);
+                            for w in weapons.iter_mut() {
+                                w.add_ammo(amount);
+                            }
+                            if let Some(sound) = &audio_assets.pickup_ammo {
+                                sound.play();
+                            }
                             "MUNICION"
                         }
                         PickupKind::Health => {
                             lvl.health = (lvl.health + amount as f32).min(PLAYER_MAX_HEALTH);
+                            if let Some(sound) = &audio_assets.pickup_health {
+                                sound.play();
+                            }
                             "VIDA"
                         }
                     };
